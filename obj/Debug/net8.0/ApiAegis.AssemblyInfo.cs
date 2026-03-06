@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ApiAegis")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db88d060301ebd9d93fe7560fd7d68a36d5d8aec")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+71faee2a6de46eb74bc4945e423bbf46478a32b2")]
 [assembly: System.Reflection.AssemblyProductAttribute("ApiAegis")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ApiAegis")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

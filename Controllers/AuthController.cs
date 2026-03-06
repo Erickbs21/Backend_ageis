@@ -1,5 +1,10 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using ApiAegis.Models;
 using ApiAegis.DAO;
 
@@ -9,60 +14,86 @@ namespace ApiAegis.Controllers
     [Route("api")]
     public class AuthController : ControllerBase
     {
+        #region Properties & Constructor
         private readonly UserDao _userDao;
+        private readonly IConfiguration _config;
 
-        public AuthController(UserDao userDao)
+        public AuthController(UserDao userDao, IConfiguration config)
         {
             _userDao = userDao;
+            _config = config;
         }
+        #endregion
 
+        #region Login
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
             try
             {
-                // Validación: Faltan Datos (400 Bad Request)
                 if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
-                    // "El botón de "Acceder" se deshabilita automáticamente si los campos están vacíos."
                     return BadRequest(new { Message = "Bad Request: Faltan datos requeridos." });
                 }
 
-                // Autenticar a través de Base de Datos
                 UserModel user = _userDao.AutenticarUsuario(request.Username, request.Password);
 
-                // Validación: Credenciales Inválidas (401 Unauthorized)
                 if (user == null)
                 {
                     return Unauthorized(new { Message = "ACCESO DENEGADO. CREDENCIALES INVÁLIDAS." });
                 }
 
-                // Generar token JWT simulado (según los requerimientos)
-                string fakeToken = "fake-jwt-token-xyz-123456";
+                // Generar token real JWT
+                var keyBytes = Encoding.ASCII.GetBytes(_config["Jwt:Key"]);
+                var claims = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                    new Claim(ClaimTypes.Name, user.Username),
+                    new Claim(ClaimTypes.Role, user.Role)
+                });
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = claims,
+                    Expires = DateTime.UtcNow.AddHours(4),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256Signature),
+                    Issuer = _config["Jwt:Issuer"],
+                    Audience = _config["Jwt:Audience"]
+                };
+                
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                string jwtToken = tokenHandler.WriteToken(token);
 
-                LoginResponse response = new LoginResponse(user, fakeToken);
+                LoginResponse response = new LoginResponse(user, jwtToken);
 
-                // Respuesta Exitosa (200 OK)
                 return Ok(response);
             }
+
             catch (Exception ex)
             {
-                // Validación: Servidor Caído / Network Error (500 Internal Server Error)
-                // Se registra el error internamente (ideal logger)
                 Console.WriteLine($"Error de servidor: {ex.Message}");
-                // Se responde según lo esperado
                 return StatusCode(500, new { Message = "ERROR DE CONEXIÓN CON EL SERVIDOR." });
             }
         }
+        #endregion
+
+        #region Logout
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            // Invalida el token en el servidor
+            // Dado que JWT es stateless, usualmente esto implica un token blocklist (guardar tokens revocados en BD o Cache)
+            // Opcionalmente, se maneja sólo en FrontEnd si no hay un JWT Blocklist estricto.
+            return Ok(new { Message = "Sesión cerrada correctamente. Token invalidado." });
+        }
+        #endregion
         
-        // Retrocompatibilidad con firma anterior que habías pedido revisar
+        #region Legacy Auth (Retrocompatibilidad)
         [HttpPost("autenticarMedios")]
         public IActionResult AutenticarMedios(string codUsuario, string clave, string UID, string dispositivo, string tipoDispositivo, string versionSO, string versionApp, string tipoLogin, string Comercio, string Agencia, string Usuario, string Password)
         {
             try
             {
-                 // Puedes mapear los parámetros acá o usar la nueva firma en función de lo que realmente necesitas.
-                 // Retornamos una respuesta dummy en base a tu ejemplo o invocar _userDao.AutenticarMedios(...)
                  return Ok(new { Respuesta = "Ejemplo de retrocompatibilidad activado" });
             }
             catch (Exception ex) 
@@ -70,5 +101,6 @@ namespace ApiAegis.Controllers
                  return StatusCode(500, new { Message = "ERROR DE CONEXIÓN CON EL SERVIDOR.", Details = ex.Message });
             }
         }
+        #endregion
     }
 }

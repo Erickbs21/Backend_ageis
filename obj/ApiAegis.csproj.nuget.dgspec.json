@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\erici\\OneDrive\\Escritorio\\Project Backups\\ApiAegis\\ApiAegis.csproj": {}
+    "C:\\Users\\erici\\OneDrive\\Escritorio\\Backend_ageis\\ApiAegis.csproj": {}
   },
   "projects": {
-    "C:\\Users\\erici\\OneDrive\\Escritorio\\Project Backups\\ApiAegis\\ApiAegis.csproj": {
+    "C:\\Users\\erici\\OneDrive\\Escritorio\\Backend_ageis\\ApiAegis.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\erici\\OneDrive\\Escritorio\\Project Backups\\ApiAegis\\ApiAegis.csproj",
+        "projectUniqueName": "C:\\Users\\erici\\OneDrive\\Escritorio\\Backend_ageis\\ApiAegis.csproj",
         "projectName": "ApiAegis",
-        "projectPath": "C:\\Users\\erici\\OneDrive\\Escritorio\\Project Backups\\ApiAegis\\ApiAegis.csproj",
+        "projectPath": "C:\\Users\\erici\\OneDrive\\Escritorio\\Backend_ageis\\ApiAegis.csproj",
         "packagesPath": "C:\\Users\\erici\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\erici\\OneDrive\\Escritorio\\Project Backups\\ApiAegis\\obj\\",
+        "outputPath": "C:\\Users\\erici\\OneDrive\\Escritorio\\Backend_ageis\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -50,17 +50,21 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[8.0.20, )"
             },
-            "Microsoft.Data.SqlClient": {
-              "target": "Package",
-              "version": "[6.1.4, )"
-            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
+            },
+            "System.Data.SqlClient": {
+              "target": "Package",
+              "version": "[4.9.1, )"
             }
           },
           "imports": [
