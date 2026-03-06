@@ -4,7 +4,6 @@
 -- USUARIOS
 ----------------------------------------------------
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerUsuarios') DROP PROCEDURE sp_ObtenerUsuarios
-GO
 CREATE PROCEDURE sp_ObtenerUsuarios
 AS
 BEGIN
@@ -13,10 +12,8 @@ BEGIN
     FROM Usuarios
     WHERE Activo = 1;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearUsuario') DROP PROCEDURE sp_CrearUsuario
-GO
 CREATE PROCEDURE sp_CrearUsuario
     @Nombre NVARCHAR(100),
     @Username NVARCHAR(100),
@@ -36,10 +33,8 @@ BEGIN
     
     SELECT SCOPE_IDENTITY() AS IdNuevoUsuario;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ResetearPasswordUsuario') DROP PROCEDURE sp_ResetearPasswordUsuario
-GO
 CREATE PROCEDURE sp_ResetearPasswordUsuario
     @IdUsuario INT,
     @NuevoPasswordHash NVARCHAR(MAX)
@@ -50,14 +45,12 @@ BEGIN
     SET PasswordHash = @NuevoPasswordHash
     WHERE Id = @IdUsuario;
 END
-GO
 
 
 ----------------------------------------------------
 -- PRODUCTOS E INVENTARIO
 ----------------------------------------------------
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerProductos') DROP PROCEDURE sp_ObtenerProductos
-GO
 CREATE PROCEDURE sp_ObtenerProductos
 AS
 BEGIN
@@ -66,10 +59,8 @@ BEGIN
     FROM Productos
     WHERE Activo = 1;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearProducto') DROP PROCEDURE sp_CrearProducto
-GO
 CREATE PROCEDURE sp_CrearProducto
     @CodigoBarras NVARCHAR(50),
     @Nombre NVARCHAR(150),
@@ -92,10 +83,8 @@ BEGIN
     
     SELECT SCOPE_IDENTITY() AS IdNuevoProducto;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ActualizarProducto') DROP PROCEDURE sp_ActualizarProducto
-GO
 CREATE PROCEDURE sp_ActualizarProducto
     @Id INT,
     @Precio DECIMAL(18,2),
@@ -110,10 +99,8 @@ BEGIN
         StockMinimo = @StockMinimo
     WHERE Id = @Id AND Activo = 1;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_EliminarProducto') DROP PROCEDURE sp_EliminarProducto
-GO
 CREATE PROCEDURE sp_EliminarProducto
     @Id INT
 AS
@@ -124,7 +111,6 @@ BEGIN
     SET Activo = 0
     WHERE Id = @Id;
 END
-GO
 
 
 ----------------------------------------------------
@@ -135,7 +121,6 @@ GO
 --  Aquí optamos por un SP que inserta la cabecera y otro para detalles con descuento de stock).
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearVenta') DROP PROCEDURE sp_CrearVenta
-GO
 CREATE PROCEDURE sp_CrearVenta
     @IdUsuario INT,
     @Total DECIMAL(18,2),
@@ -165,10 +150,8 @@ BEGIN
         WHERE Id = @IdCorteCaja;
     END
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_AgregarDetalleVenta') DROP PROCEDURE sp_AgregarDetalleVenta
-GO
 CREATE PROCEDURE sp_AgregarDetalleVenta
     @IdVenta INT,
     @IdProducto INT,
@@ -208,10 +191,8 @@ BEGIN
         THROW;
     END CATCH
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerHistorialVentas') DROP PROCEDURE sp_ObtenerHistorialVentas
-GO
 CREATE PROCEDURE sp_ObtenerHistorialVentas
     @FechaInicio DATETIME = NULL,
     @FechaFin DATETIME = NULL,
@@ -228,10 +209,8 @@ BEGIN
       AND (@FechaFin IS NULL OR V.FechaVenta <= @FechaFin)
     ORDER BY V.FechaVenta DESC;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerTicketVenta') DROP PROCEDURE sp_ObtenerTicketVenta
-GO
 CREATE PROCEDURE sp_ObtenerTicketVenta
     @IdVenta INT
 AS
@@ -243,14 +222,12 @@ BEGIN
     INNER JOIN Productos P ON DV.IdProducto = P.Id
     WHERE DV.IdVenta = @IdVenta;
 END
-GO
 
 
 ----------------------------------------------------
 -- PROVEEDORES
 ----------------------------------------------------
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerProveedores') DROP PROCEDURE sp_ObtenerProveedores
-GO
 CREATE PROCEDURE sp_ObtenerProveedores
 AS
 BEGIN
@@ -259,10 +236,8 @@ BEGIN
     FROM Proveedores
     WHERE Activo = 1;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearProveedor') DROP PROCEDURE sp_CrearProveedor
-GO
 CREATE PROCEDURE sp_CrearProveedor
     @Nombre NVARCHAR(150),
     @NitRfc NVARCHAR(50),
@@ -275,10 +250,8 @@ BEGIN
     
     SELECT SCOPE_IDENTITY() AS IdNuevoProveedor;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ActualizarProveedor') DROP PROCEDURE sp_ActualizarProveedor
-GO
 CREATE PROCEDURE sp_ActualizarProveedor
     @Id INT,
     @Nombre NVARCHAR(150),
@@ -293,14 +266,12 @@ BEGIN
         Telefono = @Telefono
     WHERE Id = @Id AND Activo = 1;
 END
-GO
 
 
 ----------------------------------------------------
 -- CORTE DE CAJA
 ----------------------------------------------------
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_EstadoCaja') DROP PROCEDURE sp_EstadoCaja
-GO
 CREATE PROCEDURE sp_EstadoCaja
 AS
 BEGIN
@@ -309,10 +280,8 @@ BEGIN
     FROM CortesCaja
     ORDER BY Id DESC;
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_AbrirCaja') DROP PROCEDURE sp_AbrirCaja
-GO
 CREATE PROCEDURE sp_AbrirCaja
     @IdUsuario INT,
     @SaldoInicial DECIMAL(18,2)
@@ -329,10 +298,8 @@ BEGIN
     INSERT INTO CortesCaja (IdUsuario, SaldoInicial)
     VALUES (@IdUsuario, @SaldoInicial);
 END
-GO
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CerrarCaja') DROP PROCEDURE sp_CerrarCaja
-GO
 CREATE PROCEDURE sp_CerrarCaja
     @Id INT
 AS
@@ -356,4 +323,3 @@ BEGIN
     
     SELECT SaldoFinal FROM CortesCaja WHERE Id = @Id;
 END
-GO

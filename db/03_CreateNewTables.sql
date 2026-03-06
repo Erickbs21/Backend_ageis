@@ -17,7 +17,6 @@ BEGIN
     ('Proveedor Global S.A.', 'NIT-12345678-9', '555-1234'),
     ('Distribuidora Nacional', 'RFC-DINA900101', '555-5678');
 END
-GO
 
 -- 2. Productos (Inventario)
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Productos')
@@ -41,7 +40,6 @@ BEGIN
     ('7509876543210', 'Pantalón Jean', 'Pantalón de mezclilla talla 32', 'Ropa', 450.00, 30, 5),
     ('7501112223334', 'Zapatos Deportivos', 'Zapatos para correr talla 40', 'Calzado', 850.00, 15, 5);
 END
-GO
 
 -- 3. Corte de Caja
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CortesCaja')
@@ -60,7 +58,6 @@ BEGIN
     
     -- No insertamos datos de prueba aquí porque depende de las operaciones
 END
-GO
 
 -- 4. Ventas
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Ventas')
@@ -74,7 +71,6 @@ BEGIN
         Estado NVARCHAR(20) DEFAULT 'Completada' -- 'Completada', 'Cancelada'
     );
 END
-GO
 
 -- 5. Detalle de Ventas
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DetalleVentas')
@@ -88,4 +84,3 @@ BEGIN
         Subtotal DECIMAL(18, 2) NOT NULL
     );
 END
-GO

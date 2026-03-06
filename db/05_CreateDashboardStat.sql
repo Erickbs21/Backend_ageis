@@ -1,7 +1,6 @@
 -- PROCEDIMIENTO ALMACENADO PARA DASHBOARD STATS
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerDashboardStats') DROP PROCEDURE sp_ObtenerDashboardStats
-GO
 CREATE PROCEDURE sp_ObtenerDashboardStats
 AS
 BEGIN
@@ -33,4 +32,3 @@ BEGIN
         @ProductosBajoStock AS AlertasStock,
         @ProveedoresActivos AS ProveedoresActivos;
 END
-GO

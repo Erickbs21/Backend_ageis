@@ -2,7 +2,6 @@
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_AutenticarUsuario')
     DROP PROCEDURE sp_AutenticarUsuario
-GO
 
 CREATE PROCEDURE sp_AutenticarUsuario
     @Username NVARCHAR(100),
@@ -27,4 +26,3 @@ BEGIN
       AND PasswordHash = @Password 
       AND Activo = 1;
 END
-GO

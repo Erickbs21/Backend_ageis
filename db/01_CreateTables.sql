@@ -18,4 +18,3 @@ BEGIN
     INSERT INTO Usuarios (Nombre, Username, PasswordHash, Role)
     VALUES ('Erick Admin', 'usuario@ejemplo.com', 'tu_password', 'Admin');
 END
-GO
