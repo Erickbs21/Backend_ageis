@@ -1,86 +1,89 @@
 -- Script para crear tablas de Inventario, Ventas, Proveedores y Corte de Caja
 
 -- 1. Proveedores
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Proveedores')
-BEGIN
-    CREATE TABLE Proveedores (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        Nombre NVARCHAR(150) NOT NULL,
-        NitRfc NVARCHAR(50) NOT NULL,
-        Telefono NVARCHAR(20) NULL,
-        FechaCreacion DATETIME DEFAULT GETDATE(),
-        Activo BIT DEFAULT 1
-    );
+CREATE TABLE IF NOT EXISTS Proveedores (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    Nombre VARCHAR(150) NOT NULL,
+    NitRfc VARCHAR(50) NOT NULL,
+    Telefono VARCHAR(20) NULL,
+    FechaCreacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Activo TINYINT(1) DEFAULT 1
+);
 
-    -- Datos de prueba
-    INSERT INTO Proveedores (Nombre, NitRfc, Telefono) VALUES
-    ('Proveedor Global S.A.', 'NIT-12345678-9', '555-1234'),
-    ('Distribuidora Nacional', 'RFC-DINA900101', '555-5678');
-END
+-- Datos de prueba
+INSERT INTO Proveedores (Nombre, NitRfc, Telefono)
+SELECT 'Proveedor Global S.A.', 'NIT-12345678-9', '555-1234' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM Proveedores WHERE NitRfc = 'NIT-12345678-9');
+
+INSERT INTO Proveedores (Nombre, NitRfc, Telefono)
+SELECT 'Distribuidora Nacional', 'RFC-DINA900101', '555-5678' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM Proveedores WHERE NitRfc = 'RFC-DINA900101');
+
 
 -- 2. Productos (Inventario)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Productos')
-BEGIN
-    CREATE TABLE Productos (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        CodigoBarras NVARCHAR(50) NOT NULL UNIQUE,
-        Nombre NVARCHAR(150) NOT NULL,
-        Descripcion NVARCHAR(MAX) NULL,
-        Categoria NVARCHAR(100) NULL,
-        Precio DECIMAL(18, 2) NOT NULL,
-        Stock INT NOT NULL DEFAULT 0,
-        StockMinimo INT NOT NULL DEFAULT 5,
-        Activo BIT DEFAULT 1,
-        FechaCreacion DATETIME DEFAULT GETDATE()
-    );
+CREATE TABLE IF NOT EXISTS Productos (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    CodigoBarras VARCHAR(50) NOT NULL UNIQUE,
+    Nombre VARCHAR(150) NOT NULL,
+    Descripcion TEXT NULL,
+    Categoria VARCHAR(100) NULL,
+    Precio DECIMAL(18, 2) NOT NULL,
+    Stock INT NOT NULL DEFAULT 0,
+    StockMinimo INT NOT NULL DEFAULT 5,
+    Activo TINYINT(1) DEFAULT 1,
+    FechaCreacion DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
-    -- Datos de prueba
-    INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo) VALUES
-    ('7501234567890', 'Camiseta Polo', 'Camiseta de algodón talla M', 'Ropa', 250.00, 50, 10),
-    ('7509876543210', 'Pantalón Jean', 'Pantalón de mezclilla talla 32', 'Ropa', 450.00, 30, 5),
-    ('7501112223334', 'Zapatos Deportivos', 'Zapatos para correr talla 40', 'Calzado', 850.00, 15, 5);
-END
+-- Datos de prueba
+INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo)
+SELECT '7501234567890', 'Camiseta Polo', 'Camiseta de algodón talla M', 'Ropa', 250.00, 50, 10 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM Productos WHERE CodigoBarras = '7501234567890');
+
+INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo)
+SELECT '7509876543210', 'Pantalón Jean', 'Pantalón de mezclilla talla 32', 'Ropa', 450.00, 30, 5 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM Productos WHERE CodigoBarras = '7509876543210');
+
+INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo)
+SELECT '7501112223334', 'Zapatos Deportivos', 'Zapatos para correr talla 40', 'Calzado', 850.00, 15, 5 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM Productos WHERE CodigoBarras = '7501112223334');
+
 
 -- 3. Corte de Caja
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CortesCaja')
-BEGIN
-    CREATE TABLE CortesCaja (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        IdUsuario INT NOT NULL FOREIGN KEY REFERENCES Usuarios(Id),
-        FechaApertura DATETIME NOT NULL DEFAULT GETDATE(),
-        FechaCierre DATETIME NULL,
-        SaldoInicial DECIMAL(18, 2) NOT NULL,
-        TotalVentas DECIMAL(18, 2) NOT NULL DEFAULT 0,
-        TotalEgresos DECIMAL(18, 2) NOT NULL DEFAULT 0,
-        SaldoFinal DECIMAL(18, 2) NULL,
-        Estado NVARCHAR(20) DEFAULT 'Abierta' -- 'Abierta', 'Cerrada'
-    );
-    
-    -- No insertamos datos de prueba aquí porque depende de las operaciones
-END
+CREATE TABLE IF NOT EXISTS CortesCaja (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    IdUsuario INT NOT NULL,
+    FechaApertura DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FechaCierre DATETIME NULL,
+    SaldoInicial DECIMAL(18, 2) NOT NULL,
+    TotalVentas DECIMAL(18, 2) NOT NULL DEFAULT 0,
+    TotalEgresos DECIMAL(18, 2) NOT NULL DEFAULT 0,
+    SaldoFinal DECIMAL(18, 2) NULL,
+    Estado VARCHAR(20) DEFAULT 'Abierta', -- 'Abierta', 'Cerrada'
+    FOREIGN KEY (IdUsuario) REFERENCES Usuarios(Id)
+);
+
 
 -- 4. Ventas
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Ventas')
-BEGIN
-    CREATE TABLE Ventas (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        IdUsuario INT NOT NULL FOREIGN KEY REFERENCES Usuarios(Id),
-        IdCorteCaja INT NULL FOREIGN KEY REFERENCES CortesCaja(Id),
-        Total DECIMAL(18, 2) NOT NULL,
-        FechaVenta DATETIME DEFAULT GETDATE(),
-        Estado NVARCHAR(20) DEFAULT 'Completada' -- 'Completada', 'Cancelada'
-    );
-END
+CREATE TABLE IF NOT EXISTS Ventas (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    IdUsuario INT NOT NULL,
+    IdCorteCaja INT NULL,
+    Total DECIMAL(18, 2) NOT NULL,
+    FechaVenta DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Estado VARCHAR(20) DEFAULT 'Completada', -- 'Completada', 'Cancelada'
+    FOREIGN KEY (IdUsuario) REFERENCES Usuarios(Id),
+    FOREIGN KEY (IdCorteCaja) REFERENCES CortesCaja(Id)
+);
+
 
 -- 5. Detalle de Ventas
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DetalleVentas')
-BEGIN
-    CREATE TABLE DetalleVentas (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        IdVenta INT NOT NULL FOREIGN KEY REFERENCES Ventas(Id),
-        IdProducto INT NOT NULL FOREIGN KEY REFERENCES Productos(Id),
-        Cantidad INT NOT NULL,
-        PrecioUnitario DECIMAL(18, 2) NOT NULL,
-        Subtotal DECIMAL(18, 2) NOT NULL
-    );
-END
+CREATE TABLE IF NOT EXISTS DetalleVentas (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    IdVenta INT NOT NULL,
+    IdProducto INT NOT NULL,
+    Cantidad INT NOT NULL,
+    PrecioUnitario DECIMAL(18, 2) NOT NULL,
+    Subtotal DECIMAL(18, 2) NOT NULL,
+    FOREIGN KEY (IdVenta) REFERENCES Ventas(Id),
+    FOREIGN KEY (IdProducto) REFERENCES Productos(Id)
+);

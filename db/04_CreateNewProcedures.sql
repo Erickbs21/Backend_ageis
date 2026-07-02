@@ -3,323 +3,317 @@
 ----------------------------------------------------
 -- USUARIOS
 ----------------------------------------------------
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerUsuarios') DROP PROCEDURE sp_ObtenerUsuarios
-CREATE PROCEDURE sp_ObtenerUsuarios
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuarios;
+DELIMITER //
+CREATE PROCEDURE sp_ObtenerUsuarios()
 BEGIN
-    SET NOCOUNT ON;
     SELECT Id, Nombre, Username, Role, FechaCreacion, Activo
     FROM Usuarios
     WHERE Activo = 1;
-END
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearUsuario') DROP PROCEDURE sp_CrearUsuario
-CREATE PROCEDURE sp_CrearUsuario
-    @Nombre NVARCHAR(100),
-    @Username NVARCHAR(100),
-    @PasswordHash NVARCHAR(MAX),
-    @Role NVARCHAR(50)
-AS
+DROP PROCEDURE IF EXISTS sp_CrearUsuario;
+DELIMITER //
+CREATE PROCEDURE sp_CrearUsuario(
+    IN p_Nombre VARCHAR(100),
+    IN p_Username VARCHAR(100),
+    IN p_PasswordHash TEXT,
+    IN p_Role VARCHAR(50)
+)
 BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM Usuarios WHERE Username = @Username)
-    BEGIN
-        RAISERROR('El nombre de usuario ya existe.', 16, 1);
-        RETURN;
-    END
+    IF EXISTS (SELECT 1 FROM Usuarios WHERE Username = p_Username) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de usuario ya existe.';
+    ELSE
+        INSERT INTO Usuarios (Nombre, Username, PasswordHash, Role)
+        VALUES (p_Nombre, p_Username, p_PasswordHash, p_Role);
+        
+        SELECT LAST_INSERT_ID() AS IdNuevoUsuario;
+    END IF;
+END //
+DELIMITER ;
 
-    INSERT INTO Usuarios (Nombre, Username, PasswordHash, Role)
-    VALUES (@Nombre, @Username, @PasswordHash, @Role);
-    
-    SELECT SCOPE_IDENTITY() AS IdNuevoUsuario;
-END
-
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ResetearPasswordUsuario') DROP PROCEDURE sp_ResetearPasswordUsuario
-CREATE PROCEDURE sp_ResetearPasswordUsuario
-    @IdUsuario INT,
-    @NuevoPasswordHash NVARCHAR(MAX)
-AS
+DROP PROCEDURE IF EXISTS sp_ResetearPasswordUsuario;
+DELIMITER //
+CREATE PROCEDURE sp_ResetearPasswordUsuario(
+    IN p_IdUsuario INT,
+    IN p_NuevoPasswordHash TEXT
+)
 BEGIN
-    SET NOCOUNT ON;
     UPDATE Usuarios
-    SET PasswordHash = @NuevoPasswordHash
-    WHERE Id = @IdUsuario;
-END
+    SET PasswordHash = p_NuevoPasswordHash
+    WHERE Id = p_IdUsuario;
+END //
+DELIMITER ;
 
 
 ----------------------------------------------------
 -- PRODUCTOS E INVENTARIO
 ----------------------------------------------------
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerProductos') DROP PROCEDURE sp_ObtenerProductos
-CREATE PROCEDURE sp_ObtenerProductos
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerProductos;
+DELIMITER //
+CREATE PROCEDURE sp_ObtenerProductos()
 BEGIN
-    SET NOCOUNT ON;
     SELECT Id, CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo
     FROM Productos
     WHERE Activo = 1;
-END
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearProducto') DROP PROCEDURE sp_CrearProducto
-CREATE PROCEDURE sp_CrearProducto
-    @CodigoBarras NVARCHAR(50),
-    @Nombre NVARCHAR(150),
-    @Descripcion NVARCHAR(MAX),
-    @Categoria NVARCHAR(100),
-    @Precio DECIMAL(18,2),
-    @Stock INT,
-    @StockMinimo INT
-AS
+DROP PROCEDURE IF EXISTS sp_CrearProducto;
+DELIMITER //
+CREATE PROCEDURE sp_CrearProducto(
+    IN p_CodigoBarras VARCHAR(50),
+    IN p_Nombre VARCHAR(150),
+    IN p_Descripcion TEXT,
+    IN p_Categoria VARCHAR(100),
+    IN p_Precio DECIMAL(18,2),
+    IN p_Stock INT,
+    IN p_StockMinimo INT
+)
 BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM Productos WHERE CodigoBarras = @CodigoBarras AND Activo = 1)
-    BEGIN
-        RAISERROR('El código de barras ya está registrado.', 16, 1);
-        RETURN;
-    END
+    IF EXISTS (SELECT 1 FROM Productos WHERE CodigoBarras = p_CodigoBarras AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El código de barras ya está registrado.';
+    ELSE
+        INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo)
+        VALUES (p_CodigoBarras, p_Nombre, p_Descripcion, p_Categoria, p_Precio, p_Stock, p_StockMinimo);
+        
+        SELECT LAST_INSERT_ID() AS IdNuevoProducto;
+    END IF;
+END //
+DELIMITER ;
 
-    INSERT INTO Productos (CodigoBarras, Nombre, Descripcion, Categoria, Precio, Stock, StockMinimo)
-    VALUES (@CodigoBarras, @Nombre, @Descripcion, @Categoria, @Precio, @Stock, @StockMinimo);
-    
-    SELECT SCOPE_IDENTITY() AS IdNuevoProducto;
-END
-
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ActualizarProducto') DROP PROCEDURE sp_ActualizarProducto
-CREATE PROCEDURE sp_ActualizarProducto
-    @Id INT,
-    @Precio DECIMAL(18,2),
-    @Descripcion NVARCHAR(MAX),
-    @StockMinimo INT
-AS
+DROP PROCEDURE IF EXISTS sp_ActualizarProducto;
+DELIMITER //
+CREATE PROCEDURE sp_ActualizarProducto(
+    IN p_Id INT,
+    IN p_Precio DECIMAL(18,2),
+    IN p_Descripcion TEXT,
+    IN p_StockMinimo INT
+)
 BEGIN
-    SET NOCOUNT ON;
     UPDATE Productos
-    SET Precio = @Precio,
-        Descripcion = @Descripcion,
-        StockMinimo = @StockMinimo
-    WHERE Id = @Id AND Activo = 1;
-END
+    SET Precio = p_Precio,
+        Descripcion = p_Descripcion,
+        StockMinimo = p_StockMinimo
+    WHERE Id = p_Id AND Activo = 1;
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_EliminarProducto') DROP PROCEDURE sp_EliminarProducto
-CREATE PROCEDURE sp_EliminarProducto
-    @Id INT
-AS
+DROP PROCEDURE IF EXISTS sp_EliminarProducto;
+DELIMITER //
+CREATE PROCEDURE sp_EliminarProducto(
+    IN p_Id INT
+)
 BEGIN
-    SET NOCOUNT ON;
     -- Soft delete
     UPDATE Productos
     SET Activo = 0
-    WHERE Id = @Id;
-END
+    WHERE Id = p_Id;
+END //
+DELIMITER ;
 
 
 ----------------------------------------------------
 -- VENTAS (CON TRANSACCIÓN PARA DESCONTAR STOCK)
 ----------------------------------------------------
--- (Nota: Para un caso real con múltiples productos en una venta, usaremos un Type de Tabla, 
---  o se insertará el maestro y luego los detalles llamando a otro SP.
---  Aquí optamos por un SP que inserta la cabecera y otro para detalles con descuento de stock).
-
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearVenta') DROP PROCEDURE sp_CrearVenta
-CREATE PROCEDURE sp_CrearVenta
-    @IdUsuario INT,
-    @Total DECIMAL(18,2),
-    @IdNuevaVenta INT OUTPUT
-AS
+DROP PROCEDURE IF EXISTS sp_CrearVenta;
+DELIMITER //
+CREATE PROCEDURE sp_CrearVenta(
+    IN p_IdUsuario INT,
+    IN p_Total DECIMAL(18,2),
+    OUT p_IdNuevaVenta INT
+)
 BEGIN
-    SET NOCOUNT ON;
-    
-    DECLARE @IdCorteCaja INT = NULL;
+    DECLARE v_IdCorteCaja INT DEFAULT NULL;
     
     -- Buscar si hay una caja abierta
-    SELECT TOP 1 @IdCorteCaja = Id 
+    SELECT Id INTO v_IdCorteCaja 
     FROM CortesCaja 
     WHERE Estado = 'Abierta' 
-    ORDER BY Id DESC;
+    ORDER BY Id DESC 
+    LIMIT 1;
 
     INSERT INTO Ventas (IdUsuario, IdCorteCaja, Total)
-    VALUES (@IdUsuario, @IdCorteCaja, @Total);
+    VALUES (p_IdUsuario, v_IdCorteCaja, p_Total);
 
-    SET @IdNuevaVenta = SCOPE_IDENTITY();
+    SET p_IdNuevaVenta = LAST_INSERT_ID();
     
     -- Si hay caja, sumar total ventas
-    IF @IdCorteCaja IS NOT NULL
-    BEGIN
+    IF v_IdCorteCaja IS NOT NULL THEN
         UPDATE CortesCaja
-        SET TotalVentas = TotalVentas + @Total
-        WHERE Id = @IdCorteCaja;
-    END
-END
+        SET TotalVentas = TotalVentas + p_Total
+        WHERE Id = v_IdCorteCaja;
+    END IF;
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_AgregarDetalleVenta') DROP PROCEDURE sp_AgregarDetalleVenta
-CREATE PROCEDURE sp_AgregarDetalleVenta
-    @IdVenta INT,
-    @IdProducto INT,
-    @Cantidad INT,
-    @PrecioUnitario DECIMAL(18,2),
-    @Subtotal DECIMAL(18,2)
-AS
+DROP PROCEDURE IF EXISTS sp_AgregarDetalleVenta;
+DELIMITER //
+CREATE PROCEDURE sp_AgregarDetalleVenta(
+    IN p_IdVenta INT,
+    IN p_IdProducto INT,
+    IN p_Cantidad INT,
+    IN p_PrecioUnitario DECIMAL(18,2),
+    IN p_Subtotal DECIMAL(18,2)
+)
 BEGIN
-    SET NOCOUNT ON;
-    
-    BEGIN TRY
-        BEGIN TRANSACTION;
+    DECLARE v_StockActual INT;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error al agregar detalle de venta y descontar stock.';
+    END;
 
-        -- 1. Verificar si hay stock
-        DECLARE @StockActual INT;
-        SELECT @StockActual = Stock FROM Productos WHERE Id = @IdProducto;
+    START TRANSACTION;
 
-        IF @StockActual < @Cantidad
-        BEGIN
-            RAISERROR('Stock insuficiente para el producto.', 16, 1);
-        END
+    -- 1. Verificar si hay stock
+    SELECT Stock INTO v_StockActual FROM Productos WHERE Id = p_IdProducto;
 
+    IF v_StockActual < p_Cantidad THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Stock insuficiente para el producto.';
+    ELSE
         -- 2. Insertar detalle
         INSERT INTO DetalleVentas (IdVenta, IdProducto, Cantidad, PrecioUnitario, Subtotal)
-        VALUES (@IdVenta, @IdProducto, @Cantidad, @PrecioUnitario, @Subtotal);
+        VALUES (p_IdVenta, p_IdProducto, p_Cantidad, p_PrecioUnitario, p_Subtotal);
 
         -- 3. Descontar Stock
         UPDATE Productos
-        SET Stock = Stock - @Cantidad
-        WHERE Id = @IdProducto;
+        SET Stock = Stock - p_Cantidad
+        WHERE Id = p_IdProducto;
 
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0
-            ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH
-END
+        COMMIT;
+    END IF;
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerHistorialVentas') DROP PROCEDURE sp_ObtenerHistorialVentas
-CREATE PROCEDURE sp_ObtenerHistorialVentas
-    @FechaInicio DATETIME = NULL,
-    @FechaFin DATETIME = NULL,
-    @IdUsuario INT = NULL
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerHistorialVentas;
+DELIMITER //
+CREATE PROCEDURE sp_ObtenerHistorialVentas(
+    IN p_FechaInicio DATETIME,
+    IN p_FechaFin DATETIME,
+    IN p_IdUsuario INT
+)
 BEGIN
-    SET NOCOUNT ON;
-    
     SELECT V.Id, V.IdUsuario, U.Nombre AS Cajero, V.Total, V.FechaVenta, V.Estado
     FROM Ventas V
     INNER JOIN Usuarios U ON V.IdUsuario = U.Id
-    WHERE (@IdUsuario IS NULL OR V.IdUsuario = @IdUsuario)
-      AND (@FechaInicio IS NULL OR V.FechaVenta >= @FechaInicio)
-      AND (@FechaFin IS NULL OR V.FechaVenta <= @FechaFin)
+    WHERE (p_IdUsuario IS NULL OR V.IdUsuario = p_IdUsuario)
+      AND (p_FechaInicio IS NULL OR V.FechaVenta >= p_FechaInicio)
+      AND (p_FechaFin IS NULL OR V.FechaVenta <= p_FechaFin)
     ORDER BY V.FechaVenta DESC;
-END
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerTicketVenta') DROP PROCEDURE sp_ObtenerTicketVenta
-CREATE PROCEDURE sp_ObtenerTicketVenta
-    @IdVenta INT
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerTicketVenta;
+DELIMITER //
+CREATE PROCEDURE sp_ObtenerTicketVenta(
+    IN p_IdVenta INT
+)
 BEGIN
-    SET NOCOUNT ON;
-    
     SELECT DV.Id, DV.IdProducto, P.Nombre AS Producto, P.CodigoBarras, DV.Cantidad, DV.PrecioUnitario, DV.Subtotal
     FROM DetalleVentas DV
     INNER JOIN Productos P ON DV.IdProducto = P.Id
-    WHERE DV.IdVenta = @IdVenta;
-END
+    WHERE DV.IdVenta = p_IdVenta;
+END //
+DELIMITER ;
 
 
 ----------------------------------------------------
 -- PROVEEDORES
 ----------------------------------------------------
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerProveedores') DROP PROCEDURE sp_ObtenerProveedores
-CREATE PROCEDURE sp_ObtenerProveedores
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerProveedores;
+DELIMITER //
+CREATE PROCEDURE sp_ObtenerProveedores()
 BEGIN
-    SET NOCOUNT ON;
     SELECT Id, Nombre, NitRfc, Telefono
     FROM Proveedores
     WHERE Activo = 1;
-END
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CrearProveedor') DROP PROCEDURE sp_CrearProveedor
-CREATE PROCEDURE sp_CrearProveedor
-    @Nombre NVARCHAR(150),
-    @NitRfc NVARCHAR(50),
-    @Telefono NVARCHAR(20)
-AS
+DROP PROCEDURE IF EXISTS sp_CrearProveedor;
+DELIMITER //
+CREATE PROCEDURE sp_CrearProveedor(
+    IN p_Nombre VARCHAR(150),
+    IN p_NitRfc VARCHAR(50),
+    IN p_Telefono VARCHAR(20)
+)
 BEGIN
-    SET NOCOUNT ON;
     INSERT INTO Proveedores (Nombre, NitRfc, Telefono)
-    VALUES (@Nombre, @NitRfc, @Telefono);
+    VALUES (p_Nombre, p_NitRfc, p_Telefono);
     
-    SELECT SCOPE_IDENTITY() AS IdNuevoProveedor;
-END
+    SELECT LAST_INSERT_ID() AS IdNuevoProveedor;
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ActualizarProveedor') DROP PROCEDURE sp_ActualizarProveedor
-CREATE PROCEDURE sp_ActualizarProveedor
-    @Id INT,
-    @Nombre NVARCHAR(150),
-    @NitRfc NVARCHAR(50),
-    @Telefono NVARCHAR(20)
-AS
+DROP PROCEDURE IF EXISTS sp_ActualizarProveedor;
+DELIMITER //
+CREATE PROCEDURE sp_ActualizarProveedor(
+    IN p_Id INT,
+    IN p_Nombre VARCHAR(150),
+    IN p_NitRfc VARCHAR(50),
+    IN p_Telefono VARCHAR(20)
+)
 BEGIN
-    SET NOCOUNT ON;
     UPDATE Proveedores
-    SET Nombre = @Nombre,
-        NitRfc = @NitRfc,
-        Telefono = @Telefono
-    WHERE Id = @Id AND Activo = 1;
-END
+    SET Nombre = p_Nombre,
+        NitRfc = p_NitRfc,
+        Telefono = p_Telefono
+    WHERE Id = p_Id AND Activo = 1;
+END //
+DELIMITER ;
 
 
 ----------------------------------------------------
 -- CORTE DE CAJA
 ----------------------------------------------------
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_EstadoCaja') DROP PROCEDURE sp_EstadoCaja
-CREATE PROCEDURE sp_EstadoCaja
-AS
+DROP PROCEDURE IF EXISTS sp_EstadoCaja;
+DELIMITER //
+CREATE PROCEDURE sp_EstadoCaja()
 BEGIN
-    SET NOCOUNT ON;
-    SELECT TOP 1 Id, IdUsuario, FechaApertura, SaldoInicial, TotalVentas, TotalEgresos, Estado
+    SELECT Id, IdUsuario, FechaApertura, SaldoInicial, TotalVentas, TotalEgresos, Estado
     FROM CortesCaja
-    ORDER BY Id DESC;
-END
+    ORDER BY Id DESC
+    LIMIT 1;
+END //
+DELIMITER ;
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_AbrirCaja') DROP PROCEDURE sp_AbrirCaja
-CREATE PROCEDURE sp_AbrirCaja
-    @IdUsuario INT,
-    @SaldoInicial DECIMAL(18,2)
-AS
+DROP PROCEDURE IF EXISTS sp_AbrirCaja;
+DELIMITER //
+CREATE PROCEDURE sp_AbrirCaja(
+    IN p_IdUsuario INT,
+    IN p_SaldoInicial DECIMAL(18,2)
+)
 BEGIN
-    SET NOCOUNT ON;
-    
-    IF EXISTS (SELECT 1 FROM CortesCaja WHERE Estado = 'Abierta')
-    BEGIN
-        RAISERROR('Ya existe una caja abierta.', 16, 1);
-        RETURN;
-    END
+    IF EXISTS (SELECT 1 FROM CortesCaja WHERE Estado = 'Abierta') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ya existe una caja abierta.';
+    ELSE
+        INSERT INTO CortesCaja (IdUsuario, SaldoInicial)
+        VALUES (p_IdUsuario, p_SaldoInicial);
+    END IF;
+END //
+DELIMITER ;
 
-    INSERT INTO CortesCaja (IdUsuario, SaldoInicial)
-    VALUES (@IdUsuario, @SaldoInicial);
-END
-
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_CerrarCaja') DROP PROCEDURE sp_CerrarCaja
-CREATE PROCEDURE sp_CerrarCaja
-    @Id INT
-AS
+DROP PROCEDURE IF EXISTS sp_CerrarCaja;
+DELIMITER //
+CREATE PROCEDURE sp_CerrarCaja(
+    IN p_Id INT
+)
 BEGIN
-    SET NOCOUNT ON;
-    
-    DECLARE @Estado NVARCHAR(20);
-    SELECT @Estado = Estado FROM CortesCaja WHERE Id = @Id;
+    DECLARE v_Estado VARCHAR(20);
+    SELECT Estado INTO v_Estado FROM CortesCaja WHERE Id = p_Id;
 
-    IF @Estado <> 'Abierta'
-    BEGIN
-        RAISERROR('La caja ya se encuentra cerrada o no existe.', 16, 1);
-        RETURN;
-    END
-
-    UPDATE CortesCaja
-    SET FechaCierre = GETDATE(),
-        Estado = 'Cerrada',
-        SaldoFinal = SaldoInicial + TotalVentas - TotalEgresos
-    WHERE Id = @Id;
-    
-    SELECT SaldoFinal FROM CortesCaja WHERE Id = @Id;
-END
+    IF v_Estado <> 'Abierta' OR v_Estado IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La caja ya se encuentra cerrada o no existe.';
+    ELSE
+        UPDATE CortesCaja
+        SET FechaCierre = NOW(),
+            Estado = 'Cerrada',
+            SaldoFinal = SaldoInicial + TotalVentas - TotalEgresos
+        WHERE Id = p_Id;
+        
+        SELECT SaldoFinal FROM CortesCaja WHERE Id = p_Id;
+    END IF;
+END //
+DELIMITER ;

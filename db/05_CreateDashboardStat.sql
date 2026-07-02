@@ -1,34 +1,36 @@
 -- PROCEDIMIENTO ALMACENADO PARA DASHBOARD STATS
 
-IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_ObtenerDashboardStats') DROP PROCEDURE sp_ObtenerDashboardStats
-CREATE PROCEDURE sp_ObtenerDashboardStats
-AS
+DROP PROCEDURE IF EXISTS sp_ObtenerDashboardStats;
+
+DELIMITER //
+
+CREATE PROCEDURE sp_ObtenerDashboardStats()
 BEGIN
-    SET NOCOUNT ON;
-    
-    DECLARE @TotalVentasHoy DECIMAL(18,2) = 0;
-    DECLARE @ProductosBajoStock INT = 0;
-    DECLARE @ProveedoresActivos INT = 0;
+    DECLARE v_TotalVentasHoy DECIMAL(18,2) DEFAULT 0.00;
+    DECLARE v_ProductosBajoStock INT DEFAULT 0;
+    DECLARE v_ProveedoresActivos INT DEFAULT 0;
 
     -- 1. Total ventas del día de hoy
-    SELECT @TotalVentasHoy = ISNULL(SUM(Total), 0)
+    SELECT COALESCE(SUM(Total), 0.00) INTO v_TotalVentasHoy
     FROM Ventas
-    WHERE FORMAT(FechaVenta, 'yyyy-MM-dd') = FORMAT(GETDATE(), 'yyyy-MM-dd')
+    WHERE DATE(FechaVenta) = CURDATE()
       AND Estado = 'Completada';
 
     -- 2. Productos con stock bajo (Stock <= StockMinimo)
-    SELECT @ProductosBajoStock = COUNT(*)
+    SELECT COUNT(*) INTO v_ProductosBajoStock
     FROM Productos
     WHERE Activo = 1 AND Stock <= StockMinimo;
 
     -- 3. Total de proveedores activos
-    SELECT @ProveedoresActivos = COUNT(*)
+    SELECT COUNT(*) INTO v_ProveedoresActivos
     FROM Proveedores
     WHERE Activo = 1;
 
     -- Devolver los resultados
     SELECT 
-        @TotalVentasHoy AS VentasHoy,
-        @ProductosBajoStock AS AlertasStock,
-        @ProveedoresActivos AS ProveedoresActivos;
-END
+        v_TotalVentasHoy AS VentasHoy,
+        v_ProductosBajoStock AS AlertasStock,
+        v_ProveedoresActivos AS ProveedoresActivos;
+END //
+
+DELIMITER ;
