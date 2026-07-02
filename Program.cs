@@ -1,12 +1,24 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
+using ApiAegis.Data;
+using ApiAegis.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuración de JWT
+// 1. Configuración de Base de Datos MariaDB/MySQL con EF Core (Pomelo)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Cadena de conexión 'DefaultConnection' no encontrada.");
+
+builder.Services.AddDbContext<AegisDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+// 2. Configuración de JWT
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
+var keyStr = jwtSettings["Key"] ?? throw new InvalidOperationException("La clave JWT no ha sido configurada.");
+var key = Encoding.ASCII.GetBytes(keyStr);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -30,19 +42,58 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Add services to the container.
+// 3. Registrar Helpers/Servicios
+builder.Services.AddScoped<JwtHelper>();
+
+// 4. Configurar CORS para soportar Frontend en Angular
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-// Inyección de dependencias
-builder.Services.AddScoped<ApiAegis.DAO.UserDao>();
-builder.Services.AddScoped<ApiAegis.DAO.ProductDao>();
-builder.Services.AddScoped<ApiAegis.DAO.SaleDao>();
-builder.Services.AddScoped<ApiAegis.DAO.ProviderDao>();
-builder.Services.AddScoped<ApiAegis.DAO.CashCutDao>();
+// 5. Configuración Premium de Swagger con soporte para Autenticación JWT Bearer
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "AEGIS POS API", 
+        Version = "v1",
+        Description = "API del Backend para el sistema de punto de venta AEGIS POS"
+    });
 
-builder.Services.AddScoped<ApiAegis.DAO.DashboardDao>();
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Autenticación JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -50,12 +101,18 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AEGIS POS API V1");
+    });
 }
+
+// Aplicar CORS
+app.UseCors("AngularApp");
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // <-- Agregar antes de Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
