@@ -1,74 +1,142 @@
-using System;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ApiAegis.Data;
+using ApiAegis.DTOs;
+using ApiAegis.Helpers;
 using ApiAegis.Models;
-using ApiAegis.DAO;
+using System.Security.Claims;
 
 namespace ApiAegis.Controllers
 {
     [ApiController]
-    [Route("api")]
+    [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly UserDao _userDao;
+        private readonly AegisDbContext _context;
+        private readonly JwtHelper _jwtHelper;
 
-        public AuthController(UserDao userDao)
+        public AuthController(AegisDbContext context, JwtHelper jwtHelper)
         {
-            _userDao = userDao;
+            _context = context;
+            _jwtHelper = jwtHelper;
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
-            try
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var usuario = await _context.Usuarios
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.NombreUsuario.ToLower() == model.Usuario.ToLower() && u.Activo);
+
+            if (usuario == null || !BCrypt.Net.BCrypt.Verify(model.Password, usuario.PasswordHash))
             {
-                // Validación: Faltan Datos (400 Bad Request)
-                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                // Registrar auditoría de intento fallido
+                var errorAudit = new Auditoria
                 {
-                    // "El botón de "Acceder" se deshabilita automáticamente si los campos están vacíos."
-                    return BadRequest(new { Message = "Bad Request: Faltan datos requeridos." });
-                }
+                    Accion = $"Intento fallido de inicio de sesión para el usuario: {model.Usuario}",
+                    TablaAfectada = "usuarios",
+                    Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    Fecha = DateTime.UtcNow
+                };
+                _context.Auditorias.Add(errorAudit);
+                await _context.SaveChangesAsync();
 
-                // Autenticar a través de Base de Datos
-                UserModel user = _userDao.AutenticarUsuario(request.Username, request.Password);
-
-                // Validación: Credenciales Inválidas (401 Unauthorized)
-                if (user == null)
-                {
-                    return Unauthorized(new { Message = "ACCESO DENEGADO. CREDENCIALES INVÁLIDAS." });
-                }
-
-                // Generar token JWT simulado (según los requerimientos)
-                string fakeToken = "fake-jwt-token-xyz-123456";
-
-                LoginResponse response = new LoginResponse(user, fakeToken);
-
-                // Respuesta Exitosa (200 OK)
-                return Ok(response);
+                return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo" });
             }
-            catch (Exception ex)
+
+            // Obtener permisos del usuario a través de su Rol
+            var permisos = await _context.RolPermisos
+                .Where(rp => rp.RolId == usuario.RolId)
+                .Include(rp => rp.Permiso)
+                .Select(rp => rp.Permiso!.Nombre)
+                .ToListAsync();
+
+            // Generar Tokens
+            var token = _jwtHelper.GenerarToken(usuario, permisos);
+            var refreshToken = _jwtHelper.GenerarRefreshToken();
+
+            usuario.RefreshToken = refreshToken;
+            usuario.RefreshTokenExpira = DateTime.UtcNow.AddDays(7);
+            usuario.UltimoAcceso = DateTime.UtcNow;
+
+            // Registrar auditoría de acceso exitoso
+            var audit = new Auditoria
             {
-                // Validación: Servidor Caído / Network Error (500 Internal Server Error)
-                // Se registra el error internamente (ideal logger)
-                Console.WriteLine($"Error de servidor: {ex.Message}");
-                // Se responde según lo esperado
-                return StatusCode(500, new { Message = "ERROR DE CONEXIÓN CON EL SERVIDOR." });
-            }
+                UsuarioId = usuario.Id,
+                Accion = "Inicio de sesión exitoso",
+                TablaAfectada = "usuarios",
+                RegistroId = usuario.Id,
+                Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Fecha = DateTime.UtcNow
+            };
+            _context.Auditorias.Add(audit);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new LoginResponseDto
+            {
+                Token = token,
+                RefreshToken = refreshToken,
+                Usuario = usuario.NombreUsuario,
+                Nombre = $"{usuario.Nombre} {usuario.Apellido}",
+                Rol = usuario.Rol?.Nombre ?? "",
+                Permisos = permisos
+            });
         }
-        
-        // Retrocompatibilidad con firma anterior que habías pedido revisar
-        [HttpPost("autenticarMedios")]
-        public IActionResult AutenticarMedios(string codUsuario, string clave, string UID, string dispositivo, string tipoDispositivo, string versionSO, string versionApp, string tipoLogin, string Comercio, string Agencia, string Usuario, string Password)
+
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto model)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            ClaimsPrincipal? principal = null;
             try
             {
-                 // Puedes mapear los parámetros acá o usar la nueva firma en función de lo que realmente necesitas.
-                 // Retornamos una respuesta dummy en base a tu ejemplo o invocar _userDao.AutenticarMedios(...)
-                 return Ok(new { Respuesta = "Ejemplo de retrocompatibilidad activado" });
+                principal = _jwtHelper.ObtenerPrincipalDeTokenExpirado(model.Token);
             }
-            catch (Exception ex) 
+            catch (Exception)
             {
-                 return StatusCode(500, new { Message = "ERROR DE CONEXIÓN CON EL SERVIDOR.", Details = ex.Message });
+                return BadRequest(new { mensaje = "Token inválido" });
             }
+
+            if (principal == null)
+            {
+                return BadRequest(new { mensaje = "Token inválido" });
+            }
+
+            var username = principal.Identity?.Name;
+            var usuario = await _context.Usuarios
+                .Include(u => u.Rol)
+                .FirstOrDefaultAsync(u => u.NombreUsuario == username && u.Activo);
+
+            if (usuario == null || usuario.RefreshToken != model.RefreshToken || usuario.RefreshTokenExpira <= DateTime.UtcNow)
+            {
+                return BadRequest(new { mensaje = "Refresh Token inválido o expirado" });
+            }
+
+            var permisos = await _context.RolPermisos
+                .Where(rp => rp.RolId == usuario.RolId)
+                .Include(rp => rp.Permiso)
+                .Select(rp => rp.Permiso!.Nombre)
+                .ToListAsync();
+
+            var nuevoToken = _jwtHelper.GenerarToken(usuario, permisos);
+            var nuevoRefreshToken = _jwtHelper.GenerarRefreshToken();
+
+            usuario.RefreshToken = nuevoRefreshToken;
+            usuario.RefreshTokenExpira = DateTime.UtcNow.AddDays(7);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                token = nuevoToken,
+                refreshToken = nuevoRefreshToken
+            });
         }
     }
 }
