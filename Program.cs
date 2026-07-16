@@ -45,15 +45,14 @@ builder.Services.AddAuthentication(options =>
 // 3. Registrar Helpers/Servicios
 builder.Services.AddScoped<JwtHelper>();
 
-// 4. Configurar CORS para soportar Frontend en Angular
+// 4. Configurar CORS para soportar Frontend en Angular (y cualquier origen local en desarrollo)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularApp", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
