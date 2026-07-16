@@ -29,14 +29,14 @@ namespace ApiAegis.Controllers
 
             var usuario = await _context.Usuarios
                 .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.NombreUsuario.ToLower() == model.Usuario.ToLower() && u.Activo);
+                .FirstOrDefaultAsync(u => u.NombreUsuario.ToLower() == model.Username.ToLower() && u.Activo);
 
             if (usuario == null || !BCrypt.Net.BCrypt.Verify(model.Password, usuario.PasswordHash))
             {
                 // Registrar auditoría de intento fallido
                 var errorAudit = new Auditoria
                 {
-                    Accion = $"Intento fallido de inicio de sesión para el usuario: {model.Usuario}",
+                    Accion = $"Intento fallido de inicio de sesión para el usuario: {model.Username}",
                     TablaAfectada = "usuarios",
                     Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
                     Fecha = DateTime.UtcNow
@@ -78,6 +78,7 @@ namespace ApiAegis.Controllers
 
             return Ok(new LoginResponseDto
             {
+                Id = usuario.Id,
                 Token = token,
                 RefreshToken = refreshToken,
                 Usuario = usuario.NombreUsuario,

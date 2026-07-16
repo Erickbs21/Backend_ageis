@@ -5,7 +5,7 @@ namespace ApiAegis.DTOs
     public class LoginDto
     {
         [Required(ErrorMessage = "El nombre de usuario es requerido")]
-        public string Usuario { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "La contraseña es requerida")]
         public string Password { get; set; } = string.Empty;
@@ -13,6 +13,7 @@ namespace ApiAegis.DTOs
 
     public class LoginResponseDto
     {
+        public int Id { get; set; }
         public string Token { get; set; } = string.Empty;
         public string RefreshToken { get; set; } = string.Empty;
         public string Usuario { get; set; } = string.Empty;
