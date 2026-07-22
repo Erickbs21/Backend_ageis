@@ -33,6 +33,7 @@ namespace ApiAegis.Data
         public DbSet<DevolucionDetalle> DevolucionesDetalle { get; set; }
         public DbSet<Auditoria> Auditorias { get; set; }
         public DbSet<Configuracion> Configuraciones { get; set; }
+        public DbSet<ConfiguracionFel> ConfiguracionesFel { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
