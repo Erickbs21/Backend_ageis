@@ -39,6 +39,55 @@ namespace ApiAegis.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // Índices para mejorar rendimiento
+            modelBuilder.Entity<Producto>()
+                .HasIndex(p => p.Codigo)
+                .HasDatabaseName("IX_Productos_Codigo");
+
+            modelBuilder.Entity<Producto>()
+                .HasIndex(p => p.CodigoBarras)
+                .HasDatabaseName("IX_Productos_CodigoBarras");
+
+            modelBuilder.Entity<Producto>()
+                .HasIndex(p => p.Nombre)
+                .HasDatabaseName("IX_Productos_Nombre");
+
+            modelBuilder.Entity<Producto>()
+                .HasIndex(p => p.StockActual)
+                .HasDatabaseName("IX_Productos_StockActual");
+
+            modelBuilder.Entity<Venta>()
+                .HasIndex(v => v.FechaVenta)
+                .HasDatabaseName("IX_Ventas_FechaVenta");
+
+            modelBuilder.Entity<Venta>()
+                .HasIndex(v => v.Estado)
+                .HasDatabaseName("IX_Ventas_Estado");
+
+            modelBuilder.Entity<Venta>()
+                .HasIndex(v => v.ClienteId)
+                .HasDatabaseName("IX_Ventas_ClienteId");
+
+            modelBuilder.Entity<Cliente>()
+                .HasIndex(c => c.Nit)
+                .HasDatabaseName("IX_Clientes_Nit");
+
+            modelBuilder.Entity<Cliente>()
+                .HasIndex(c => c.Nombre)
+                .HasDatabaseName("IX_Clientes_Nombre");
+
+            modelBuilder.Entity<Proveedor>()
+                .HasIndex(p => p.Nit)
+                .HasDatabaseName("IX_Proveedores_Nit");
+
+            modelBuilder.Entity<MovimientoInventario>()
+                .HasIndex(m => m.FechaMovimiento)
+                .HasDatabaseName("IX_MovimientosInventario_FechaMovimiento");
+
+            modelBuilder.Entity<MovimientoInventario>()
+                .HasIndex(m => m.ProductoId)
+                .HasDatabaseName("IX_MovimientosInventario_ProductoId");
+
             // Configuraciones de precisión decimal para MariaDB/MySQL
             modelBuilder.Entity<Cliente>()
                 .Property(c => c.LimiteCredito)

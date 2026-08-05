@@ -21,15 +21,17 @@ namespace ApiAegis.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<VentaDto>>> GetVentas()
+        public async Task<ActionResult<IEnumerable<VentaDto>>> GetVentas([FromQuery] int pagina = 1, [FromQuery] int tamano = 50)
         {
             var ventas = await _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Usuario)
-                .Include(v => v.MetodoPago)
                 .Include(v => v.Pagos)
                     .ThenInclude(p => p.MetodoPago)
                 .OrderByDescending(v => v.FechaVenta)
+                .Skip((pagina - 1) * tamano)
+                .Take(tamano)
                 .Select(v => new VentaDto
                 {
                     Id = v.Id,
@@ -65,9 +67,9 @@ namespace ApiAegis.Controllers
         public async Task<ActionResult<VentaDto>> GetVenta(int id)
         {
             var v = await _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Usuario)
-                .Include(v => v.MetodoPago)
                 .Include(v => v.Pagos)
                     .ThenInclude(p => p.MetodoPago)
                 .Include(v => v.Detalles)

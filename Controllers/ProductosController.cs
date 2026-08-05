@@ -21,10 +21,13 @@ namespace ApiAegis.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProductoDto>>> GetProductos()
+        public async Task<ActionResult<IEnumerable<ProductoDto>>> GetProductos([FromQuery] int pagina = 1, [FromQuery] int tamano = 100)
         {
             var productos = await _context.Productos
+                .AsNoTracking()
                 .Include(p => p.Categoria)
+                .Skip((pagina - 1) * tamano)
+                .Take(tamano)
                 .Select(p => new ProductoDto
                 {
                     Id = p.Id,
@@ -86,14 +89,14 @@ namespace ApiAegis.Controllers
             if (string.IsNullOrWhiteSpace(query))
                 return BadRequest(new { mensaje = "El término de búsqueda es requerido" });
 
-            query = query.ToLower();
-
             var productos = await _context.Productos
+                .AsNoTracking()
                 .Include(p => p.Categoria)
-                .Where(p => p.Codigo.ToLower().Contains(query) ||
-                            (p.CodigoBarras != null && p.CodigoBarras.ToLower().Contains(query)) ||
-                            p.Nombre.ToLower().Contains(query) ||
-                            (p.Marca != null && p.Marca.ToLower().Contains(query)))
+                .Where(p => EF.Functions.Like(p.Codigo, $"%{query}%") ||
+                            EF.Functions.Like(p.CodigoBarras!, $"%{query}%") ||
+                            EF.Functions.Like(p.Nombre, $"%{query}%") ||
+                            EF.Functions.Like(p.Marca!, $"%{query}%"))
+                .Take(20)
                 .Select(p => new ProductoDto
                 {
                     Id = p.Id,

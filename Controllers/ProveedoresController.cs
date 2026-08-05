@@ -21,9 +21,12 @@ namespace ApiAegis.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProveedorDto>>> GetProveedores()
+        public async Task<ActionResult<IEnumerable<ProveedorDto>>> GetProveedores([FromQuery] int pagina = 1, [FromQuery] int tamano = 100)
         {
             var proveedores = await _context.Proveedores
+                .AsNoTracking()
+                .Skip((pagina - 1) * tamano)
+                .Take(tamano)
                 .Select(p => new ProveedorDto
                 {
                     Id = p.Id,

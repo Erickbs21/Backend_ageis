@@ -21,9 +21,12 @@ namespace ApiAegis.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ClienteDto>>> GetClientes()
+        public async Task<ActionResult<IEnumerable<ClienteDto>>> GetClientes([FromQuery] int pagina = 1, [FromQuery] int tamano = 100)
         {
             var clientes = await _context.Clientes
+                .AsNoTracking()
+                .Skip((pagina - 1) * tamano)
+                .Take(tamano)
                 .Select(c => new ClienteDto
                 {
                     Id = c.Id,
