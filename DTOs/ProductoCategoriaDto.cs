@@ -74,6 +74,8 @@ namespace ApiAegis.DTOs
         [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo debe ser mayor o igual a 0")]
         public int StockMinimo { get; set; }
 
+        public int StockActual { get; set; }
+
         public bool UsaCodigoBarras { get; set; } = false;
     }
 }

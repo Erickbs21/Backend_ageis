@@ -9,6 +9,8 @@ namespace ApiAegis.DTOs
 
         public string? NombreCliente { get; set; }
 
+        public string? Nit { get; set; }
+
         public string TipoDocumento { get; set; } = "VENTA"; // VENTA, COTIZACION, SUSPENDIDA
 
         public decimal Descuento { get; set; } = 0.00m;
@@ -47,6 +49,7 @@ namespace ApiAegis.DTOs
         public int ClienteId { get; set; }
         public string ClienteNombre { get; set; } = string.Empty;
         public string? NombreCliente { get; set; }
+        public string? Nit { get; set; }
         public string TipoDocumento { get; set; } = string.Empty;
         public int UsuarioId { get; set; }
         public string UsuarioNombre { get; set; } = string.Empty;

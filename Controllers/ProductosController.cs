@@ -238,6 +238,7 @@ namespace ApiAegis.Controllers
             p.PrecioVenta = model.PrecioVenta;
             p.PrecioMayoreo = model.PrecioMayoreo;
             p.StockMinimo = model.StockMinimo;
+            p.StockActual = model.StockActual;
             p.UsaCodigoBarras = model.UsaCodigoBarras;
 
             // Auditoría

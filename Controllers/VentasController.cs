@@ -39,6 +39,7 @@ namespace ApiAegis.Controllers
                     ClienteId = v.ClienteId,
                     ClienteNombre = v.Cliente!.Nombre,
                     NombreCliente = v.NombreCliente,
+                    Nit = v.Nit,
                     TipoDocumento = v.TipoDocumento,
                     UsuarioId = v.UsuarioId,
                     UsuarioNombre = $"{v.Usuario!.Nombre} {v.Usuario.Apellido}",
@@ -86,6 +87,7 @@ namespace ApiAegis.Controllers
                 ClienteId = v.ClienteId,
                 ClienteNombre = v.Cliente!.Nombre,
                 NombreCliente = v.NombreCliente,
+                Nit = v.Nit,
                 TipoDocumento = v.TipoDocumento,
                 UsuarioId = v.UsuarioId,
                 UsuarioNombre = $"{v.Usuario!.Nombre} {v.Usuario.Apellido}",
@@ -137,6 +139,23 @@ namespace ApiAegis.Controllers
             if (cliente == null || !cliente.Activo)
                 return BadRequest(new { mensaje = "El cliente especificado no existe o está inactivo" });
 
+            // NIT de la venta
+            string? nitFinal = string.IsNullOrWhiteSpace(model.Nit) ? cliente.Nit : model.Nit!.Trim();
+
+            // Si es Consumidor Final (1) pero el NIT coincide con un cliente registrado,
+            // vincular la venta a ese cliente para mostrar sus datos en el historial.
+            int clienteIdFinal = model.ClienteId;
+            if (clienteIdFinal == 1 && !string.IsNullOrWhiteSpace(nitFinal))
+            {
+                var clientePorNit = await _context.Clientes.FirstOrDefaultAsync(c => c.Nit == nitFinal && c.Activo);
+                if (clientePorNit != null)
+                {
+                    clienteIdFinal = clientePorNit.Id;
+                    cliente = clientePorNit;
+                    nitFinal = clientePorNit.Nit;
+                }
+            }
+
             // 3. Verificar Método de Pago (si no usa array Pagos)
             int metodoPagoPrincipal = 1; // Default a efectivo
             if (model.Pagos.Any())
@@ -153,8 +172,9 @@ namespace ApiAegis.Controllers
                 var venta = new Venta
                 {
                     NumeroDocumento = $"VNT-{DateTime.UtcNow:yyyyMMddHHmmss}-{new Random().Next(100, 999)}",
-                    ClienteId = model.ClienteId,
+                    ClienteId = clienteIdFinal,
                     NombreCliente = model.NombreCliente,
+                    Nit = nitFinal,
                     TipoDocumento = model.TipoDocumento,
                     UsuarioId = currentUserId,
                     MetodoPagoId = metodoPagoPrincipal,
@@ -263,6 +283,7 @@ namespace ApiAegis.Controllers
                     ClienteId = venta.ClienteId,
                     ClienteNombre = cliente.Nombre,
                     NombreCliente = venta.NombreCliente,
+                    Nit = venta.Nit,
                     TipoDocumento = venta.TipoDocumento,
                     UsuarioId = venta.UsuarioId,
                     UsuarioNombre = User.Identity?.Name ?? "",

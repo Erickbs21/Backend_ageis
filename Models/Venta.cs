@@ -42,6 +42,10 @@ namespace ApiAegis.Models
         [Column("nombre_cliente")]
         public string? NombreCliente { get; set; }
 
+        [MaxLength(25)]
+        [Column("nit")]
+        public string? Nit { get; set; }
+
         [MaxLength(20)]
         [Column("tipo_documento")]
         public string TipoDocumento { get; set; } = "VENTA"; // VENTA, COTIZACION
