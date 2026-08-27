@@ -20,6 +20,8 @@ namespace ApiAegis.DTOs
 
         [Range(0, double.MaxValue, ErrorMessage = "El monto final debe ser mayor o igual a 0")]
         public decimal MontoFinal { get; set; }
+
+        public string? Notas { get; set; }
     }
 
     public class CrearCajaDto

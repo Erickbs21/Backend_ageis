@@ -29,6 +29,9 @@ namespace ApiAegis.Models
         [Column("monto_final")]
         public decimal MontoFinal { get; set; }
 
+        [Column("notas")]
+        public string? Notas { get; set; }
+
         [Column("fecha_cierre")]
         public DateTime FechaCierre { get; set; } = DateTime.UtcNow;
     }

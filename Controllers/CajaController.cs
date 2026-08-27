@@ -174,6 +174,7 @@ namespace ApiAegis.Controllers
                 CajaId = model.CajaId,
                 UsuarioId = currentUserId,
                 MontoFinal = model.MontoFinal,
+                Notas = model.Notas,
                 FechaCierre = DateTime.UtcNow
             };
 
