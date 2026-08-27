@@ -24,15 +24,44 @@ namespace ApiAegis.Controllers
         public async Task<ActionResult<IEnumerable<CajaDto>>> GetCajas()
         {
             var cajas = await _context.Cajas
+                .Include(c => c.Usuario)
                 .Select(c => new CajaDto
                 {
                     Id = c.Id,
                     Nombre = c.Nombre,
-                    Estado = c.Estado
+                    Estado = c.Estado,
+                    UsuarioId = c.UsuarioId,
+                    UsuarioNombre = c.Usuario != null ? $"{c.Usuario.Nombre} {c.Usuario.Apellido}" : null
                 })
                 .ToListAsync();
 
             return Ok(cajas);
+        }
+
+        [HttpPost]
+        [TienePermiso("GestionCaja")]
+        public async Task<ActionResult<CajaDto>> CrearCaja([FromBody] CrearCajaDto model)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var caja = new Caja
+            {
+                Nombre = model.Nombre,
+                UsuarioId = model.UsuarioId,
+                Estado = "Cerrada"
+            };
+
+            _context.Cajas.Add(caja);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetCajas), new { id = caja.Id }, new CajaDto
+            {
+                Id = caja.Id,
+                Nombre = caja.Nombre,
+                Estado = caja.Estado,
+                UsuarioId = caja.UsuarioId
+            });
         }
 
         [HttpGet("estado/{cajaId}")]
@@ -95,11 +124,12 @@ namespace ApiAegis.Controllers
                 return BadRequest(new { mensaje = "La caja ya se encuentra abierta" });
 
             var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var vendedorId = model.UsuarioId ?? currentUserId;
 
             var apertura = new CajaApertura
             {
                 CajaId = model.CajaId,
-                UsuarioId = currentUserId,
+                UsuarioId = vendedorId,
                 MontoInicial = model.MontoInicial,
                 FechaApertura = DateTime.UtcNow
             };

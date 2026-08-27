@@ -7,6 +7,8 @@ namespace ApiAegis.DTOs
         [Required(ErrorMessage = "La caja es requerida")]
         public int CajaId { get; set; }
 
+        public int? UsuarioId { get; set; }
+
         [Range(0, double.MaxValue, ErrorMessage = "El monto inicial debe ser mayor o igual a 0")]
         public decimal MontoInicial { get; set; }
     }
@@ -20,11 +22,21 @@ namespace ApiAegis.DTOs
         public decimal MontoFinal { get; set; }
     }
 
+    public class CrearCajaDto
+    {
+        [Required(ErrorMessage = "El nombre de la caja es requerido")]
+        public string Nombre { get; set; } = string.Empty;
+
+        public int? UsuarioId { get; set; }
+    }
+
     public class CajaDto
     {
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
+        public int? UsuarioId { get; set; }
+        public string? UsuarioNombre { get; set; }
     }
 
     public class CajaDetalleSesionDto

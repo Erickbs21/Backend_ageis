@@ -19,5 +19,11 @@ namespace ApiAegis.Models
         [MaxLength(20)]
         [Column("estado")]
         public string Estado { get; set; } = "Cerrada"; // Abierta, Cerrada
+
+        [Column("usuario_id")]
+        public int? UsuarioId { get; set; }
+
+        [ForeignKey("UsuarioId")]
+        public Usuario? Usuario { get; set; }
     }
 }
