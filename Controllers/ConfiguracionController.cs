@@ -27,6 +27,7 @@ namespace ApiAegis.Controllers
         }
 
         [HttpPost]
+        [HttpPut]
         [TienePermiso("GestionConfiguracion")]
         public IActionResult GuardarConfiguracion([FromBody] object nuevaConfiguracion)
         {
