@@ -26,70 +26,74 @@ namespace ApiAegis.Controllers
             var ventas = await _context.Ventas
                 .Include(v => v.Cliente)
                 .OrderByDescending(v => v.FechaVenta)
-                .Select(v => new FacturaDto
+                .ToListAsync();
+
+            var result = ventas.Select(v =>
+            {
+                var factura = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault();
+                return new FacturaDto
                 {
-                    Id = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
-                        ? v.Facturas.OrderByDescending(f => f.Id).First().Id : 0,
+                    Id = factura?.Id ?? 0,
                     VentaId = v.Id,
                     NumeroDocumento = v.NumeroDocumento,
                     ClienteNombre = v.Cliente != null ? v.Cliente.Nombre : (v.NombreCliente ?? "CF"),
                     Total = v.Total,
-                    Serie = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
-                        ? v.Facturas.OrderByDescending(f => f.Id).First().Serie : "",
-                    Numero = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
-                        ? v.Facturas.OrderByDescending(f => f.Id).First().Numero : "",
-                    Uuid = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
-                        ? v.Facturas.OrderByDescending(f => f.Id).First().Uuid : "",
-                    Estado = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
-                        ? v.Facturas.OrderByDescending(f => f.Id).First().Estado : "SIN FACTURA",
+                    Serie = factura?.Serie ?? "",
+                    Numero = factura?.Numero ?? "",
+                    Uuid = factura?.Uuid ?? "",
+                    Estado = factura?.Estado ?? "SIN FACTURA",
                     FechaEmision = v.FechaVenta
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
-            return Ok(ventas);
+            return Ok(result);
         }
 
         [HttpGet("buscar")]
         public async Task<ActionResult<IEnumerable<FacturaDto>>> BuscarFacturas([FromQuery] string? serie, [FromQuery] string? numero, [FromQuery] DateTime? fechaInicio, [FromQuery] DateTime? fechaFin, [FromQuery] string? clienteQuery)
         {
-            var query = _context.Facturas.Include(f => f.Venta).ThenInclude(v => v!.Cliente).AsQueryable();
-
-            if (!string.IsNullOrEmpty(serie))
-                query = query.Where(f => f.Serie.ToLower() == serie.ToLower());
-
-            if (!string.IsNullOrEmpty(numero))
-                query = query.Where(f => f.Numero.Contains(numero));
+            var query = _context.Ventas.Include(v => v.Cliente).AsQueryable();
 
             if (fechaInicio.HasValue)
-                query = query.Where(f => f.FechaEmision >= fechaInicio.Value);
+                query = query.Where(v => v.FechaVenta >= fechaInicio.Value);
 
             if (fechaFin.HasValue)
-                query = query.Where(f => f.FechaEmision <= fechaFin.Value.AddDays(1));
+                query = query.Where(v => v.FechaVenta <= fechaFin.Value.AddDays(1));
 
             if (!string.IsNullOrEmpty(clienteQuery))
             {
                 clienteQuery = clienteQuery.ToLower();
-                query = query.Where(f => f.Venta!.Cliente!.Nombre.ToLower().Contains(clienteQuery) || f.Venta!.Cliente!.Nit.ToLower().Contains(clienteQuery) || (f.Venta!.Cliente!.Dpi != null && f.Venta.Cliente.Dpi.ToLower().Contains(clienteQuery)));
+                query = query.Where(v => (v.Cliente != null && v.Cliente.Nombre.ToLower().Contains(clienteQuery)) ||
+                                         (v.Cliente != null && v.Cliente.Nit.ToLower().Contains(clienteQuery)) ||
+                                         (v.NombreCliente != null && v.NombreCliente.ToLower().Contains(clienteQuery)));
             }
 
-            var facturas = await query
-                .OrderByDescending(f => f.FechaEmision)
-                .Select(f => new FacturaDto
-                {
-                    Id = f.Id,
-                    VentaId = f.VentaId,
-                    NumeroDocumento = f.Venta!.NumeroDocumento,
-                    ClienteNombre = f.Venta.Cliente != null ? f.Venta.Cliente.Nombre : (f.Venta.NombreCliente ?? "CF"),
-                    Total = f.Venta.Total,
-                    Serie = f.Serie,
-                    Numero = f.Numero,
-                    Uuid = f.Uuid,
-                    Estado = f.Estado,
-                    FechaEmision = f.FechaEmision
-                })
-                .ToListAsync();
+            var ventas = await query.OrderByDescending(v => v.FechaVenta).ToListAsync();
 
-            return Ok(facturas);
+            var result = ventas.Select(v =>
+            {
+                var factura = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault();
+                if (!string.IsNullOrEmpty(serie) && (factura == null || factura.Serie.ToLower() != serie.ToLower()))
+                    return null;
+                if (!string.IsNullOrEmpty(numero) && (factura == null || !factura.Numero.Contains(numero)))
+                    return null;
+
+                return new FacturaDto
+                {
+                    Id = factura?.Id ?? 0,
+                    VentaId = v.Id,
+                    NumeroDocumento = v.NumeroDocumento,
+                    ClienteNombre = v.Cliente != null ? v.Cliente.Nombre : (v.NombreCliente ?? "CF"),
+                    Total = v.Total,
+                    Serie = factura?.Serie ?? "",
+                    Numero = factura?.Numero ?? "",
+                    Uuid = factura?.Uuid ?? "",
+                    Estado = factura?.Estado ?? "SIN FACTURA",
+                    FechaEmision = v.FechaVenta
+                };
+            }).Where(x => x != null).ToList();
+
+            return Ok(result);
         }
 
         [HttpGet("ultima-secuencia")]
