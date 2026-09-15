@@ -24,11 +24,15 @@ namespace ApiAegis.Controllers
         public async Task<ActionResult<IEnumerable<FacturaDto>>> GetFacturas()
         {
             var facturas = await _context.Facturas
+                .Include(f => f.Venta).ThenInclude(v => v!.Cliente)
                 .OrderByDescending(f => f.FechaEmision)
                 .Select(f => new FacturaDto
                 {
                     Id = f.Id,
                     VentaId = f.VentaId,
+                    NumeroDocumento = f.Venta!.NumeroDocumento,
+                    ClienteNombre = f.Venta.Cliente != null ? f.Venta.Cliente.Nombre : (f.Venta.NombreCliente ?? "CF"),
+                    Total = f.Venta.Total,
                     Serie = f.Serie,
                     Numero = f.Numero,
                     Uuid = f.Uuid,
@@ -43,7 +47,7 @@ namespace ApiAegis.Controllers
         [HttpGet("buscar")]
         public async Task<ActionResult<IEnumerable<FacturaDto>>> BuscarFacturas([FromQuery] string? serie, [FromQuery] string? numero, [FromQuery] DateTime? fechaInicio, [FromQuery] DateTime? fechaFin, [FromQuery] string? clienteQuery)
         {
-            var query = _context.Facturas.Include(f => f.Venta).ThenInclude(v => v.Cliente).AsQueryable();
+            var query = _context.Facturas.Include(f => f.Venta).ThenInclude(v => v!.Cliente).AsQueryable();
 
             if (!string.IsNullOrEmpty(serie))
                 query = query.Where(f => f.Serie.ToLower() == serie.ToLower());
@@ -55,7 +59,7 @@ namespace ApiAegis.Controllers
                 query = query.Where(f => f.FechaEmision >= fechaInicio.Value);
 
             if (fechaFin.HasValue)
-                query = query.Where(f => f.FechaEmision <= fechaFin.Value.AddDays(1)); // Include the end date fully
+                query = query.Where(f => f.FechaEmision <= fechaFin.Value.AddDays(1));
 
             if (!string.IsNullOrEmpty(clienteQuery))
             {
@@ -69,6 +73,9 @@ namespace ApiAegis.Controllers
                 {
                     Id = f.Id,
                     VentaId = f.VentaId,
+                    NumeroDocumento = f.Venta!.NumeroDocumento,
+                    ClienteNombre = f.Venta.Cliente != null ? f.Venta.Cliente.Nombre : (f.Venta.NombreCliente ?? "CF"),
+                    Total = f.Venta.Total,
                     Serie = f.Serie,
                     Numero = f.Numero,
                     Uuid = f.Uuid,
@@ -97,7 +104,9 @@ namespace ApiAegis.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<FacturaDto>> GetFactura(int id)
         {
-            var f = await _context.Facturas.FindAsync(id);
+            var f = await _context.Facturas
+                .Include(f => f.Venta).ThenInclude(v => v!.Cliente)
+                .FirstOrDefaultAsync(f => f.Id == id);
             if (f == null)
                 return NotFound(new { mensaje = "Factura no encontrada" });
 
@@ -105,6 +114,9 @@ namespace ApiAegis.Controllers
             {
                 Id = f.Id,
                 VentaId = f.VentaId,
+                NumeroDocumento = f.Venta!.NumeroDocumento,
+                ClienteNombre = f.Venta.Cliente != null ? f.Venta.Cliente.Nombre : (f.Venta.NombreCliente ?? "CF"),
+                Total = f.Venta.Total,
                 Serie = f.Serie,
                 Numero = f.Numero,
                 Uuid = f.Uuid,
@@ -139,7 +151,6 @@ namespace ApiAegis.Controllers
 
             _context.Facturas.Add(factura);
 
-            // Auditoría
             var audit = new Auditoria
             {
                 UsuarioId = currentUserId,
@@ -155,6 +166,9 @@ namespace ApiAegis.Controllers
             {
                 Id = factura.Id,
                 VentaId = factura.VentaId,
+                NumeroDocumento = venta.NumeroDocumento,
+                ClienteNombre = venta.NombreCliente ?? "CF",
+                Total = venta.Total,
                 Serie = factura.Serie,
                 Numero = factura.Numero,
                 Uuid = factura.Uuid,

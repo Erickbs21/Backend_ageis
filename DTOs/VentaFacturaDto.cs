@@ -90,6 +90,9 @@ namespace ApiAegis.DTOs
     {
         public int Id { get; set; }
         public int VentaId { get; set; }
+        public string NumeroDocumento { get; set; } = string.Empty;
+        public string ClienteNombre { get; set; } = string.Empty;
+        public decimal Total { get; set; }
         public string Serie { get; set; } = string.Empty;
         public string Numero { get; set; } = string.Empty;
         public string Uuid { get; set; } = string.Empty;
