@@ -23,25 +23,30 @@ namespace ApiAegis.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<FacturaDto>>> GetFacturas()
         {
-            var facturas = await _context.Facturas
-                .Include(f => f.Venta).ThenInclude(v => v!.Cliente)
-                .OrderByDescending(f => f.FechaEmision)
-                .Select(f => new FacturaDto
+            var ventas = await _context.Ventas
+                .Include(v => v.Cliente)
+                .OrderByDescending(v => v.FechaVenta)
+                .Select(v => new FacturaDto
                 {
-                    Id = f.Id,
-                    VentaId = f.VentaId,
-                    NumeroDocumento = f.Venta!.NumeroDocumento,
-                    ClienteNombre = f.Venta.Cliente != null ? f.Venta.Cliente.Nombre : (f.Venta.NombreCliente ?? "CF"),
-                    Total = f.Venta.Total,
-                    Serie = f.Serie,
-                    Numero = f.Numero,
-                    Uuid = f.Uuid,
-                    Estado = f.Estado,
-                    FechaEmision = f.FechaEmision
+                    Id = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
+                        ? v.Facturas.OrderByDescending(f => f.Id).First().Id : 0,
+                    VentaId = v.Id,
+                    NumeroDocumento = v.NumeroDocumento,
+                    ClienteNombre = v.Cliente != null ? v.Cliente.Nombre : (v.NombreCliente ?? "CF"),
+                    Total = v.Total,
+                    Serie = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
+                        ? v.Facturas.OrderByDescending(f => f.Id).First().Serie : "",
+                    Numero = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
+                        ? v.Facturas.OrderByDescending(f => f.Id).First().Numero : "",
+                    Uuid = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
+                        ? v.Facturas.OrderByDescending(f => f.Id).First().Uuid : "",
+                    Estado = v.Facturas.OrderByDescending(f => f.Id).FirstOrDefault() != null
+                        ? v.Facturas.OrderByDescending(f => f.Id).First().Estado : "SIN FACTURA",
+                    FechaEmision = v.FechaVenta
                 })
                 .ToListAsync();
 
-            return Ok(facturas);
+            return Ok(ventas);
         }
 
         [HttpGet("buscar")]

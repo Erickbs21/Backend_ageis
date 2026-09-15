@@ -77,5 +77,7 @@ namespace ApiAegis.Models
         public ICollection<VentaDetalle> Detalles { get; set; } = new List<VentaDetalle>();
         
         public ICollection<VentaPago> Pagos { get; set; } = new List<VentaPago>();
+
+        public ICollection<Factura> Facturas { get; set; } = new List<Factura>();
     }
 }
