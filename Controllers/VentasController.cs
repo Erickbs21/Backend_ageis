@@ -27,6 +27,8 @@ namespace ApiAegis.Controllers
                 .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Usuario)
+                .Include(v => v.Detalles)
+                    .ThenInclude(d => d.Producto)
                 .Include(v => v.Pagos)
                     .ThenInclude(p => p.MetodoPago)
                 .OrderByDescending(v => v.FechaVenta)
@@ -50,6 +52,15 @@ namespace ApiAegis.Controllers
                     Vuelto = v.Vuelto,
                     Estado = v.Estado,
                     FechaVenta = v.FechaVenta,
+                    Detalles = v.Detalles.Select(d => new VentaDetalleDto
+                    {
+                        Id = d.Id,
+                        ProductoId = d.ProductoId,
+                        ProductoNombre = d.Producto!.Nombre,
+                        Cantidad = d.Cantidad,
+                        PrecioUnitario = d.PrecioUnitario,
+                        Subtotal = d.Subtotal
+                    }).ToList(),
                     Pagos = v.Pagos.Select(p => new VentaPagoDto
                     {
                         Id = p.Id,
