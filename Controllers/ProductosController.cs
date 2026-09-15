@@ -155,7 +155,7 @@ namespace ApiAegis.Controllers
                 PrecioVenta = model.PrecioVenta,
                 PrecioMayoreo = model.PrecioMayoreo,
                 StockMinimo = model.StockMinimo,
-                StockActual = 0, // Se inicializa en 0, se carga con compras o ajustes
+                StockActual = model.StockActual,
                 UsaCodigoBarras = model.UsaCodigoBarras,
                 Activo = true,
                 FechaCreacion = DateTime.UtcNow
