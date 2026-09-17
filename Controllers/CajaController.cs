@@ -192,5 +192,34 @@ namespace ApiAegis.Controllers
 
             return Ok(new { mensaje = "Caja cerrada correctamente", cierreId = cierre.Id });
         }
+
+        [HttpDelete("{id}")]
+        [TienePermiso("GestionCaja")]
+        public async Task<IActionResult> EliminarCaja(int id)
+        {
+            var caja = await _context.Cajas.FindAsync(id);
+            if (caja == null)
+                return NotFound(new { mensaje = "Caja no encontrada" });
+
+            if (caja.Estado == "Abierta")
+                return BadRequest(new { mensaje = "No se puede eliminar una caja abierta. Ciérrela primero." });
+
+            var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            _context.Cajas.Remove(caja);
+
+            var audit = new Auditoria
+            {
+                UsuarioId = currentUserId,
+                Accion = $"Eliminó caja: {caja.Nombre} (ID: {caja.Id})",
+                TablaAfectada = "cajas",
+                Fecha = DateTime.UtcNow
+            };
+            _context.Auditorias.Add(audit);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { mensaje = "Caja eliminada correctamente" });
+        }
     }
 }
