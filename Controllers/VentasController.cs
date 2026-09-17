@@ -140,10 +140,13 @@ namespace ApiAegis.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // 1. Verificar si la caja está abierta
-            var cajaAbierta = await _context.Cajas.AnyAsync(c => c.Estado == "Abierta");
-            if (!cajaAbierta)
-                return BadRequest(new { mensaje = "Debe realizar la apertura de caja antes de registrar ventas" });
+            var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            // 1. Verificar si hay caja abierta asignada al usuario actual
+            var cajaAbierta = await _context.Cajas
+                .FirstOrDefaultAsync(c => c.Estado == "Abierta" && c.UsuarioId == currentUserId);
+            if (cajaAbierta == null)
+                return BadRequest(new { mensaje = "No tiene una caja abierta asignada. Solo el vendedor asignado puede registrar ventas." });
 
             // 2. Verificar Cliente
             var cliente = await _context.Clientes.FindAsync(model.ClienteId);
@@ -173,8 +176,6 @@ namespace ApiAegis.Controllers
             {
                 metodoPagoPrincipal = model.Pagos.First().MetodoPagoId;
             }
-
-            var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
             // Iniciar transacción de base de datos
             using var transaction = await _context.Database.BeginTransactionAsync();

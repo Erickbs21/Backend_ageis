@@ -68,7 +68,7 @@ namespace ApiAegis.Controllers
         [TienePermiso("GestionCaja")]
         public async Task<ActionResult<CajaDetalleSesionDto>> ObtenerEstadoCaja(int cajaId)
         {
-            var caja = await _context.Cajas.FindAsync(cajaId);
+            var caja = await _context.Cajas.Include(c => c.Usuario).FirstOrDefaultAsync(c => c.Id == cajaId);
             if (caja == null)
                 return NotFound(new { mensaje = "Caja no encontrada" });
 
@@ -76,27 +76,23 @@ namespace ApiAegis.Controllers
             {
                 CajaId = caja.Id,
                 CajaNombre = caja.Nombre,
-                Estado = caja.Estado
+                Estado = caja.Estado,
+                UsuarioId = caja.UsuarioId,
+                UsuarioNombre = caja.Usuario != null ? $"{caja.Usuario.Nombre} {caja.Usuario.Apellido}" : null
             };
 
             if (caja.Estado == "Abierta")
             {
-                // Buscar la última apertura
                 var apertura = await _context.CajaAperturas
                     .Where(a => a.CajaId == cajaId)
                     .OrderByDescending(a => a.FechaApertura)
-                    .Include(a => a.Usuario)
                     .FirstOrDefaultAsync();
 
                 if (apertura != null)
                 {
-                    respuesta.UsuarioId = apertura.UsuarioId;
-                    respuesta.UsuarioNombre = $"{apertura.Usuario!.Nombre} {apertura.Usuario.Apellido}";
                     respuesta.MontoInicial = apertura.MontoInicial;
                     respuesta.FechaApertura = apertura.FechaApertura;
 
-                    // Calcular ventas registradas en efectivo (y otros medios si aplica) desde la apertura
-                    // En este POS simple, asumimos ventas totales realizadas por el usuario o en general desde la apertura de caja.
                     var ventasTotal = await _context.Ventas
                         .Where(v => v.FechaVenta >= apertura.FechaApertura && v.Estado == "PAGADA")
                         .SumAsync(v => v.Total);
