@@ -92,18 +92,51 @@ namespace ApiAegis.Controllers
 
             var currentUserId = CurrentUserId;
 
-            _context.Cajas.Remove(caja);
-
-            _context.Auditorias.Add(new Auditoria
+            try
             {
-                UsuarioId = currentUserId,
-                Accion = $"Eliminó caja: {caja.Nombre} (ID: {caja.Id})",
-                TablaAfectada = "cajas",
-                RegistroId = caja.Id,
-                Fecha = DateTime.UtcNow
-            });
+                var aperturas = await _context.CajaAperturas.Where(a => a.CajaId == id).ToListAsync();
+                var aperturaIds = aperturas.Select(a => a.Id).ToHashSet();
 
-            await _context.SaveChangesAsync();
+                // El proveedor MySQL no traduce colecciones primitivas: se filtra en memoria
+                var movimientos = _context.CajaMovimientos.AsEnumerable()
+                    .Where(m => aperturaIds.Contains(m.CajaAperturaId)).ToList();
+                var cierres = _context.CajaCierres.AsEnumerable()
+                    .Where(c => c.CajaId == id || (c.CajaAperturaId.HasValue && aperturaIds.Contains(c.CajaAperturaId.Value)))
+                    .ToList();
+
+                // Las ventas se conservan: solo se desvinculan de la sesión eliminada
+                var ventas = _context.Ventas.AsEnumerable()
+                    .Where(v => v.CajaAperturaId.HasValue && aperturaIds.Contains(v.CajaAperturaId.Value))
+                    .ToList();
+                foreach (var venta in ventas)
+                    venta.CajaAperturaId = null;
+
+                _context.CajaMovimientos.RemoveRange(movimientos);
+                _context.CajaCierres.RemoveRange(cierres);
+                _context.CajaAperturas.RemoveRange(aperturas);
+                _context.Cajas.Remove(caja);
+
+                _context.Auditorias.Add(new Auditoria
+                {
+                    UsuarioId = currentUserId,
+                    Accion = $"Eliminó caja: {caja.Nombre} (ID: {caja.Id}) | " +
+                             $"sesiones: {aperturas.Count}, cortes: {cierres.Count}, movimientos: {movimientos.Count}, ventas desvinculadas: {ventas.Count}",
+                    TablaAfectada = "cajas",
+                    RegistroId = caja.Id,
+                    Fecha = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    mensaje = "No fue posible eliminar la caja porque tiene datos relacionados. " +
+                              "Verifique que no existan sesiones o cortes pendientes.",
+                    error = ex.Message
+                });
+            }
 
             return Ok(new { mensaje = "Caja eliminada correctamente" });
         }
