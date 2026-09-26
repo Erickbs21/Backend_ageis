@@ -29,7 +29,18 @@ namespace ApiAegis.Models
         [Column("monto_inicial")]
         public decimal MontoInicial { get; set; }
 
+        [MaxLength(500)]
+        [Column("observaciones")]
+        public string? Observaciones { get; set; }
+
         [Column("fecha_apertura")]
         public DateTime FechaApertura { get; set; } = DateTime.UtcNow;
+
+        // Quién asignó el vendedor a la caja (puede diferir del vendedor)
+        [Column("asignado_por")]
+        public int? AsignadoPor { get; set; }
+
+        [ForeignKey("AsignadoPor")]
+        public Usuario? AsignadoPorUsuario { get; set; }
     }
 }

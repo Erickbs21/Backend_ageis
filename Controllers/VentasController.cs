@@ -148,6 +148,12 @@ namespace ApiAegis.Controllers
             if (cajaAbierta == null)
                 return BadRequest(new { mensaje = "No tiene una caja abierta asignada. Solo el vendedor asignado puede registrar ventas." });
 
+            // Obtener la apertura de caja vigente de la sesión
+            var aperturaActual = await _context.CajaAperturas
+                .Where(a => a.CajaId == cajaAbierta.Id)
+                .OrderByDescending(a => a.FechaApertura)
+                .FirstOrDefaultAsync();
+
             // 2. Verificar Cliente
             var cliente = await _context.Clientes.FindAsync(model.ClienteId);
             if (cliente == null || !cliente.Activo)
@@ -192,7 +198,8 @@ namespace ApiAegis.Controllers
                     MetodoPagoId = metodoPagoPrincipal,
                     Descuento = model.Descuento,
                     Estado = model.TipoDocumento == "VENTA" ? "PAGADA" : "PENDIENTE",
-                    FechaVenta = DateTime.UtcNow
+                    FechaVenta = DateTime.UtcNow,
+                    CajaAperturaId = aperturaActual?.Id
                 };
 
                 decimal subtotalAcumulado = 0.00m;

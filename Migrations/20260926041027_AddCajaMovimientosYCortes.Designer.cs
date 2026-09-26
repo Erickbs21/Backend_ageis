@@ -4,6 +4,7 @@ using ApiAegis.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ApiAegis.Migrations
 {
     [DbContext(typeof(AegisDbContext))]
-    partial class AegisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926041027_AddCajaMovimientosYCortes")]
+    partial class AddCajaMovimientosYCortes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1396,7 +1399,7 @@ namespace ApiAegis.Migrations
                             FechaCreacion = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Nombre = "Administrador",
                             NombreUsuario = "admin",
-                            PasswordHash = "$2a$11$.VtsimgEsCaKe3sy1AG6HuF9rRe1nm0JepyT4CJIMtkmMf662rJBC",
+                            PasswordHash = "$2a$11$1VGFXpJVcst493X3Ijvfd.GFTYXRNKU/GkLOxSkoauANMvhtM3blC",
                             RolId = 1
                         });
                 });

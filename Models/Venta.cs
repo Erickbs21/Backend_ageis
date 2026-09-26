@@ -73,6 +73,13 @@ namespace ApiAegis.Models
         [Column("fecha_venta")]
         public DateTime FechaVenta { get; set; } = DateTime.UtcNow;
 
+        // Sesión de caja a la que pertenece la venta (evita que una venta pertenezca a dos sesiones)
+        [Column("caja_apertura_id")]
+        public int? CajaAperturaId { get; set; }
+
+        [ForeignKey("CajaAperturaId")]
+        public CajaApertura? CajaApertura { get; set; }
+
         // Relaciones
         public ICollection<VentaDetalle> Detalles { get; set; } = new List<VentaDetalle>();
         

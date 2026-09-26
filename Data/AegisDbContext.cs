@@ -25,6 +25,7 @@ namespace ApiAegis.Data
         public DbSet<Caja> Cajas { get; set; }
         public DbSet<CajaApertura> CajaAperturas { get; set; }
         public DbSet<CajaCierre> CajaCierres { get; set; }
+        public DbSet<CajaMovimiento> CajaMovimientos { get; set; }
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<VentaDetalle> VentasDetalle { get; set; }
         public DbSet<VentaPago> VentaPagos { get; set; }
@@ -131,6 +132,62 @@ namespace ApiAegis.Data
 
             modelBuilder.Entity<CajaCierre>()
                 .Property(cc => cc.MontoFinal)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<CajaMovimiento>()
+                .Property(cm => cm.Monto)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.FondoInicial)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.TotalVentas)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasEfectivo)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasTarjeta)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasTransferencia)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasCheque)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasCredito)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasMixto)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.VentasAnuladas)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.Devoluciones)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.EntradasEfectivo)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.SalidasEfectivo)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.EfectivoEsperado)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.EfectivoContado)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.Diferencia)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.Monedas)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<CajaCierre>()
+                .Property(cc => cc.TotalConteo)
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<Venta>()
