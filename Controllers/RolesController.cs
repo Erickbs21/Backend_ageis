@@ -75,13 +75,15 @@ namespace ApiAegis.Controllers
             var antiguosPermisos = await _context.RolPermisos
                 .Where(rp => rp.RolId == id)
                 .ToListAsync();
+            var idsAnteriores = antiguosPermisos.Select(rp => rp.PermisoId).ToHashSet();
             _context.RolPermisos.RemoveRange(antiguosPermisos);
 
-            // Validar que los permisos especificados existan
-            var validPermisoIds = await _context.Permisos
+            // El proveedor MySQL no traduce colecciones primitivas: se valida en memoria
+            var todosPermisos = await _context.Permisos.ToListAsync();
+            var validPermisoIds = todosPermisos
                 .Where(p => model.PermisosIds.Contains(p.Id))
                 .Select(p => p.Id)
-                .ToListAsync();
+                .ToList();
 
             // Agregar nuevos permisos
             foreach (var permisoId in validPermisoIds)
@@ -93,12 +95,21 @@ namespace ApiAegis.Controllers
                 });
             }
 
-            // Auditoría
+            // Auditoría con detalle de permisos agregados y retirados
+            var idsNuevos = validPermisoIds.ToHashSet();
+            var agregados = todosPermisos.Where(p => idsNuevos.Contains(p.Id) && !idsAnteriores.Contains(p.Id)).Select(p => p.Nombre).ToList();
+            var retirados = todosPermisos.Where(p => idsAnteriores.Contains(p.Id) && !idsNuevos.Contains(p.Id)).Select(p => p.Nombre).ToList();
+
+            var detalle = new List<string>();
+            if (agregados.Count > 0) detalle.Add("agregados: " + string.Join(", ", agregados));
+            if (retirados.Count > 0) detalle.Add("retirados: " + string.Join(", ", retirados));
+
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var audit = new Auditoria
             {
                 UsuarioId = currentUserId != null ? int.Parse(currentUserId) : null,
-                Accion = $"Modificó permisos del rol: {rol.Nombre}",
+                Accion = $"Modificó permisos del rol: {rol.Nombre}" +
+                         (detalle.Count > 0 ? " | " + string.Join(" | ", detalle) : " | sin cambios"),
                 TablaAfectada = "roles",
                 RegistroId = rol.Id,
                 Fecha = DateTime.UtcNow

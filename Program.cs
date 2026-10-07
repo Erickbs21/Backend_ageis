@@ -99,6 +99,32 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Manejador global de errores: siempre responde JSON con un mensaje claro
+// (si no, el cliente recibe un 500 con cuerpo vacío y no puede informar al usuario)
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        string mensaje;
+        if (ex is MySqlConnector.MySqlException)
+            mensaje = "No fue posible conectar con la base de datos. Intente de nuevo en unos segundos.";
+        else if (ex is Microsoft.EntityFrameworkCore.DbUpdateException)
+            mensaje = "No se pudieron guardar los cambios. Verifique los datos e intente de nuevo.";
+        else
+            mensaje = "Ocurrió un error inesperado en el servidor.";
+
+        var logger = context.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("GlobalException");
+        logger?.LogError(ex, "Error no controlado en {Path}", context.Request.Path);
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { mensaje });
+    });
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

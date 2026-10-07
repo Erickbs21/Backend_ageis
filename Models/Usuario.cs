@@ -49,6 +49,12 @@ namespace ApiAegis.Models
         [Column("ultimo_acceso")]
         public DateTime? UltimoAcceso { get; set; }
 
+        [Column("intentos_fallidos")]
+        public int IntentosFallidos { get; set; } = 0;
+
+        [Column("bloqueado_hasta")]
+        public DateTime? BloqueadoHasta { get; set; }
+
         [Column("fecha_creacion")]
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 

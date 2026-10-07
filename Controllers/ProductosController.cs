@@ -228,6 +228,10 @@ namespace ApiAegis.Controllers
             if (categoria == null)
                 return BadRequest(new { mensaje = "La categoría especificada no existe" });
 
+            var costoAnterior = p.Costo;
+            var precioAnterior = p.PrecioVenta;
+            var stockAnterior = p.StockActual;
+
             p.Codigo = model.Codigo;
             p.CodigoBarras = model.CodigoBarras;
             p.Nombre = model.Nombre;
@@ -241,12 +245,18 @@ namespace ApiAegis.Controllers
             p.StockActual = model.StockActual;
             p.UsaCodigoBarras = model.UsaCodigoBarras;
 
-            // Auditoría
+            // Auditoría con detalle de cambios (especialmente precio de venta)
+            var cambios = new List<string>();
+            if (costoAnterior != p.Costo) cambios.Add($"costo: Q{costoAnterior:0.00} -> Q{p.Costo:0.00}");
+            if (precioAnterior != p.PrecioVenta) cambios.Add($"precio: Q{precioAnterior:0.00} -> Q{p.PrecioVenta:0.00}");
+            if (stockAnterior != p.StockActual) cambios.Add($"stock: {stockAnterior} -> {p.StockActual}");
+
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var audit = new Auditoria
             {
                 UsuarioId = currentUserId != null ? int.Parse(currentUserId) : null,
-                Accion = $"Modificó producto: {p.Nombre} (ID: {p.Id})",
+                Accion = $"Modificó producto: {p.Nombre} (ID: {p.Id})" +
+                         (cambios.Count > 0 ? " | " + string.Join(", ", cambios) : ""),
                 TablaAfectada = "productos",
                 RegistroId = p.Id,
                 Fecha = DateTime.UtcNow

@@ -12,6 +12,9 @@ namespace ApiAegis.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
+        private const int MaxIntentosFallidos = 5;
+        private const int MinutosBloqueo = 15;
+
         private readonly AegisDbContext _context;
         private readonly JwtHelper _jwtHelper;
 
@@ -29,22 +32,92 @@ namespace ApiAegis.Controllers
 
             var usuario = await _context.Usuarios
                 .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.NombreUsuario.ToLower() == model.Username.ToLower() && u.Activo);
+                .FirstOrDefaultAsync(u => u.NombreUsuario.ToLower() == model.Username.ToLower());
 
-            if (usuario == null || !BCrypt.Net.BCrypt.Verify(model.Password, usuario.PasswordHash))
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            if (usuario == null)
             {
-                // Registrar auditoría de intento fallido
-                var errorAudit = new Auditoria
+                _context.Auditorias.Add(new Auditoria
                 {
-                    Accion = $"Intento fallido de inicio de sesión para el usuario: {model.Username}",
+                    Accion = $"Intento de sesión con usuario inexistente: {model.Username}",
                     TablaAfectada = "usuarios",
-                    Ip = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    Ip = ip,
                     Fecha = DateTime.UtcNow
-                };
-                _context.Auditorias.Add(errorAudit);
+                });
                 await _context.SaveChangesAsync();
 
-                return Unauthorized(new { mensaje = "Credenciales incorrectas o usuario inactivo" });
+                return Unauthorized(new { mensaje = "Usuario o contraseña incorrectos" });
+            }
+
+            if (!usuario.Activo)
+            {
+                _context.Auditorias.Add(new Auditoria
+                {
+                    UsuarioId = usuario.Id,
+                    Accion = $"Intento de sesión con usuario desactivado: {usuario.NombreUsuario}",
+                    TablaAfectada = "usuarios",
+                    RegistroId = usuario.Id,
+                    Ip = ip,
+                    Fecha = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                return Unauthorized(new { mensaje = "Usuario desactivado. Contacte al administrador" });
+            }
+
+            if (usuario.BloqueadoHasta.HasValue && usuario.BloqueadoHasta.Value > DateTime.UtcNow)
+            {
+                var minutos = (int)Math.Ceiling((usuario.BloqueadoHasta.Value - DateTime.UtcNow).TotalMinutes);
+
+                _context.Auditorias.Add(new Auditoria
+                {
+                    UsuarioId = usuario.Id,
+                    Accion = $"Intento de sesión con cuenta bloqueada: {usuario.NombreUsuario} (desbloqueo en {minutos} min)",
+                    TablaAfectada = "usuarios",
+                    RegistroId = usuario.Id,
+                    Ip = ip,
+                    Fecha = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+
+                return StatusCode(403, new
+                {
+                    mensaje = $"Cuenta bloqueada temporalmente por intentos fallidos. Intente de nuevo en {minutos} minuto(s). Un administrador puede desbloquearla."
+                });
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(model.Password, usuario.PasswordHash))
+            {
+                usuario.IntentosFallidos++;
+                var intento = usuario.IntentosFallidos;
+                string mensajeIntentos;
+
+                if (intento >= MaxIntentosFallidos)
+                {
+                    usuario.BloqueadoHasta = DateTime.UtcNow.AddMinutes(MinutosBloqueo);
+                    usuario.IntentosFallidos = 0;
+                    mensajeIntentos = $"Cuenta bloqueada por {MaxIntentosFallidos} intentos fallidos. Espere {MinutosBloqueo} minutos o contacte al administrador.";
+                }
+                else
+                {
+                    var restantes = MaxIntentosFallidos - intento;
+                    mensajeIntentos = $"Usuario o contraseña incorrectos. Intentos restantes: {restantes}";
+                }
+
+                _context.Auditorias.Add(new Auditoria
+                {
+                    UsuarioId = usuario.Id,
+                    Accion = $"Intento fallido de inicio de sesión para {usuario.NombreUsuario} (intento {intento} de {MaxIntentosFallidos})",
+                    TablaAfectada = "usuarios",
+                    RegistroId = usuario.Id,
+                    Ip = ip,
+                    Fecha = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+
+                return Unauthorized(new { mensaje = mensajeIntentos });
             }
 
             // Obtener permisos del usuario a través de su Rol
@@ -61,6 +134,8 @@ namespace ApiAegis.Controllers
             usuario.RefreshToken = refreshToken;
             usuario.RefreshTokenExpira = DateTime.UtcNow.AddDays(7);
             usuario.UltimoAcceso = DateTime.UtcNow;
+            usuario.IntentosFallidos = 0;
+            usuario.BloqueadoHasta = null;
 
             // Registrar auditoría de acceso exitoso
             var audit = new Auditoria

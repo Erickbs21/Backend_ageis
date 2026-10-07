@@ -157,18 +157,35 @@ namespace ApiAegis.Controllers
             if (rol == null)
                 return BadRequest(new { mensaje = "El rol especificado no existe" });
 
+            var rolAnterior = await _context.Roles
+                .Where(r => r.Id == usuario.RolId)
+                .Select(r => r.Nombre)
+                .FirstOrDefaultAsync();
+            var activoAnterior = usuario.Activo;
+
             usuario.Nombre = model.Nombre;
             usuario.Apellido = model.Apellido;
             usuario.Correo = model.Correo;
             usuario.RolId = model.RolId;
             usuario.Activo = model.Activo;
 
-            // Auditoría
+            if (!activoAnterior && model.Activo)
+            {
+                usuario.IntentosFallidos = 0;
+                usuario.BloqueadoHasta = null;
+            }
+
+            // Auditoría con detalle de cambios
+            var cambios = new List<string>();
+            if (rolAnterior != rol.Nombre) cambios.Add($"rol: {rolAnterior} -> {rol.Nombre}");
+            if (activoAnterior != model.Activo) cambios.Add($"estado: {(activoAnterior ? "Activo" : "Inactivo")} -> {(model.Activo ? "Activo" : "Inactivo")}");
+
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var audit = new Auditoria
             {
                 UsuarioId = currentUserId != null ? int.Parse(currentUserId) : null,
-                Accion = $"Modificó el usuario {usuario.NombreUsuario}",
+                Accion = $"Modificó el usuario {usuario.NombreUsuario}" +
+                         (cambios.Count > 0 ? " | " + string.Join(", ", cambios) : ""),
                 TablaAfectada = "usuarios",
                 RegistroId = usuario.Id,
                 Fecha = DateTime.UtcNow
@@ -193,6 +210,8 @@ namespace ApiAegis.Controllers
 
             usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.NuevoPassword);
             usuario.RefreshToken = null; // Invalidar token de sesión actual
+            usuario.IntentosFallidos = 0; // Desbloqueo por restablecimiento de contraseña
+            usuario.BloqueadoHasta = null;
 
             // Auditoría
             var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -209,6 +228,89 @@ namespace ApiAegis.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { mensaje = "Contraseña restablecida correctamente" });
+        }
+
+        // La eliminación física rompería la trazabilidad (ventas, cajas, auditorías),
+        // por lo que este endpoint desactiva el usuario y conserva su historial.
+        [HttpDelete("{id}")]
+        [TienePermiso("GestionUsuarios")]
+        public async Task<IActionResult> DesactivarUsuario(int id)
+        {
+            var usuario = await _context.Usuarios.Include(u => u.Rol).FirstOrDefaultAsync(u => u.Id == id);
+            if (usuario == null)
+                return NotFound(new { mensaje = "Usuario no encontrado" });
+
+            if (!usuario.Activo)
+                return BadRequest(new { mensaje = "El usuario ya se encuentra desactivado" });
+
+            var currentUserId = ObtenerUsuarioActualId();
+
+            if (currentUserId == id)
+                return BadRequest(new { mensaje = "No puede desactivar su propia cuenta" });
+
+            // Guardia: siempre debe quedar al menos un administrador activo
+            if (usuario.Rol?.Nombre == "Administrador")
+            {
+                var adminsActivos = await _context.Usuarios
+                    .CountAsync(u => u.Activo && u.Rol!.Nombre == "Administrador" && u.Id != id);
+                if (adminsActivos == 0)
+                    return BadRequest(new { mensaje = "No se puede desactivar: debe existir al menos un administrador activo" });
+            }
+
+            usuario.Activo = false;
+            usuario.RefreshToken = null;
+            usuario.BloqueadoHasta = null;
+            usuario.IntentosFallidos = 0;
+
+            _context.Auditorias.Add(new Auditoria
+            {
+                UsuarioId = currentUserId,
+                Accion = $"Desactivó el usuario {usuario.NombreUsuario} (rol: {usuario.Rol?.Nombre})",
+                TablaAfectada = "usuarios",
+                RegistroId = usuario.Id,
+                Fecha = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { mensaje = $"Usuario {usuario.NombreUsuario} desactivado. Su historial se conserva." });
+        }
+
+        [HttpPost("{id}/activar")]
+        [TienePermiso("GestionUsuarios")]
+        public async Task<IActionResult> ActivarUsuario(int id)
+        {
+            var usuario = await _context.Usuarios.Include(u => u.Rol).FirstOrDefaultAsync(u => u.Id == id);
+            if (usuario == null)
+                return NotFound(new { mensaje = "Usuario no encontrado" });
+
+            if (usuario.Activo)
+                return BadRequest(new { mensaje = "El usuario ya se encuentra activo" });
+
+            var currentUserId = ObtenerUsuarioActualId();
+
+            usuario.Activo = true;
+            usuario.IntentosFallidos = 0;
+            usuario.BloqueadoHasta = null;
+
+            _context.Auditorias.Add(new Auditoria
+            {
+                UsuarioId = currentUserId,
+                Accion = $"Activó el usuario {usuario.NombreUsuario} (rol: {usuario.Rol?.Nombre})",
+                TablaAfectada = "usuarios",
+                RegistroId = usuario.Id,
+                Fecha = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { mensaje = $"Usuario {usuario.NombreUsuario} activado" });
+        }
+
+        private int? ObtenerUsuarioActualId()
+        {
+            var valor = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            return valor != null && int.TryParse(valor, out var id) ? id : null;
         }
     }
 }
