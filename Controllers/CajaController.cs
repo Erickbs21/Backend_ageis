@@ -486,6 +486,13 @@ namespace ApiAegis.Controllers
             if (apertura == null)
                 return BadRequest(new { mensaje = "No existe una apertura de caja para esta sesión." });
 
+            var esDuenio = apertura.UsuarioId == currentUserId;
+            var esAdmin = await EsAdminAsync(currentUserId);
+
+            // Solo el dueño de la sesión o un administrador pueden cerrarla
+            if (!esDuenio && !esAdmin)
+                return BadRequest(new { mensaje = "Solo el vendedor asignado a la caja o un administrador pueden cerrar esta sesión." });
+
             // Calcular resumen autoritativo desde la base de datos
             var resumen = await CalcularResumenSesion(apertura.Id);
             if (resumen == null)
@@ -494,9 +501,18 @@ namespace ApiAegis.Controllers
             var efectivoContado = model.EfectivoContado != 0 ? model.EfectivoContado : model.TotalConteo;
             var diferencia = Math.Round(efectivoContado - resumen.EfectivoEsperado, 2);
             var estadoCorte = Math.Abs(diferencia) <= 0.009m ? "CUADRADO" : diferencia < 0 ? "FALTANTE" : "SOBRANTE";
+            var cierreAdministrativo = !esDuenio;
 
-            if (estadoCorte == "FALTANTE" && string.IsNullOrWhiteSpace(model.Notas))
-                return BadRequest(new { mensaje = "Debe indicar el motivo del corte con faltante" });
+            // Cualquier diferencia (faltante o sobrante) y todo cierre administrativo exigen motivo
+            if (cierreAdministrativo && string.IsNullOrWhiteSpace(model.Notas))
+                return BadRequest(new { mensaje = "Debe indicar el motivo del cierre administrativo" });
+
+            if (estadoCorte != "CUADRADO" && string.IsNullOrWhiteSpace(model.Notas))
+                return BadRequest(new { mensaje = $"Debe indicar el motivo del corte ({estadoCorte})" });
+
+            var dueno = await _context.Usuarios.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == apertura.UsuarioId);
+            var duenoNombre = dueno != null ? $"{dueno.Nombre} {dueno.Apellido}" : "—";
 
             var cierre = new CajaCierre
             {
@@ -530,17 +546,20 @@ namespace ApiAegis.Controllers
                 Monedas = model.Monedas,
                 TotalConteo = model.TotalConteo,
                 Notas = string.IsNullOrWhiteSpace(model.Notas) ? null : model.Notas.Trim(),
-                TipoCorte = "NORMAL",
+                TipoCorte = cierreAdministrativo ? "ADMINISTRATIVO" : "NORMAL",
                 FechaCierre = DateTime.UtcNow
             };
 
             caja.Estado = "Cerrada";
             _context.CajaCierres.Add(cierre);
 
+            var motivo = string.IsNullOrWhiteSpace(model.Notas) ? "" : $" | Motivo: {model.Notas.Trim()}";
             _context.Auditorias.Add(new Auditoria
             {
                 UsuarioId = currentUserId,
-                Accion = $"Cierre de caja {caja.Nombre} | Esperado: {resumen.EfectivoEsperado:C} | Contado: {efectivoContado:C} | {estadoCorte}",
+                Accion = $"Cierre {(cierreAdministrativo ? "ADMINISTRATIVO" : "NORMAL")} de caja {caja.Nombre}" +
+                         $" | Sesión de: {duenoNombre} | Esperado: {resumen.EfectivoEsperado:C} | Contado: {efectivoContado:C}" +
+                         $" | {estadoCorte} | Diferencia: {diferencia:C}{motivo}",
                 TablaAfectada = "caja_cierres",
                 RegistroId = caja.Id,
                 Fecha = DateTime.UtcNow

@@ -126,8 +126,8 @@ namespace ApiAegis.Models
         [Column("fecha_cierre")]
         public DateTime FechaCierre { get; set; } = DateTime.UtcNow;
 
-        [MaxLength(10)]
+        [MaxLength(20)]
         [Column("tipo_corte")]
-        public string TipoCorte { get; set; } = "NORMAL"; // NORMAL, PARCIAL
+        public string TipoCorte { get; set; } = "NORMAL"; // NORMAL, ADMINISTRATIVO
     }
 }
