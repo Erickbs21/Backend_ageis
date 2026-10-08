@@ -181,6 +181,7 @@ namespace ApiAegis.DTOs
         public string VentaNumeroDocumento { get; set; } = string.Empty;
         public string UsuarioNombre { get; set; } = string.Empty;
         public string Motivo { get; set; } = string.Empty;
+        public decimal MontoDevuelto { get; set; }
         public DateTime Fecha { get; set; }
         public List<DevolucionDetalleDto> Detalles { get; set; } = new List<DevolucionDetalleDto>();
     }
@@ -191,5 +192,32 @@ namespace ApiAegis.DTOs
         public int ProductoId { get; set; }
         public string ProductoNombre { get; set; } = string.Empty;
         public int Cantidad { get; set; }
+        public decimal Subtotal { get; set; }
+    }
+
+    public class DevolucionVentaDto
+    {
+        public int VentaId { get; set; }
+        public string NumeroDocumento { get; set; } = string.Empty;
+        public DateTime FechaVenta { get; set; }
+        public string ClienteNombre { get; set; } = string.Empty;
+        public string MetodoPago { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+        public decimal Total { get; set; }
+        public decimal TotalDevuelto { get; set; }
+        public decimal PendienteDevolver { get; set; }
+        public List<DevolucionVentaDetalleDto> Detalles { get; set; } = new List<DevolucionVentaDetalleDto>();
+    }
+
+    public class DevolucionVentaDetalleDto
+    {
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty;
+        public int CantidadVendida { get; set; }
+        public int CantidadDevuelta { get; set; }
+        public int CantidadPendiente { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public decimal Subtotal { get; set; }
     }
 }

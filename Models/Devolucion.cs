@@ -31,6 +31,10 @@ namespace ApiAegis.Models
         [Column("motivo")]
         public string Motivo { get; set; } = string.Empty;
 
+        [Required]
+        [Column("monto_devuelto")]
+        public decimal MontoDevuelto { get; set; } = 0.00m;
+
         [Column("fecha")]
         public DateTime Fecha { get; set; } = DateTime.UtcNow;
 

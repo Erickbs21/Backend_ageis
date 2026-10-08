@@ -126,6 +126,10 @@ namespace ApiAegis.Data
                 .Property(cd => cd.Subtotal)
                 .HasPrecision(18, 2);
 
+            modelBuilder.Entity<Devolucion>()
+                .Property(d => d.MontoDevuelto)
+                .HasPrecision(18, 2);
+
             modelBuilder.Entity<CajaApertura>()
                 .Property(ca => ca.MontoInicial)
                 .HasPrecision(18, 2);
@@ -263,11 +267,12 @@ namespace ApiAegis.Data
                 new Permiso { Id = 7, Nombre = "GestionInventario", Descripcion = "Registrar movimientos y ver stock" },
                 new Permiso { Id = 8, Nombre = "GestionCaja", Descripcion = "Abrir y cerrar caja, ver reportes de cortes" },
                 new Permiso { Id = 9, Nombre = "VerReportes", Descripcion = "Ver reportes y dashboard administrativo" },
-                new Permiso { Id = 10, Nombre = "GestionConfiguracion", Descripcion = "Configurar parámetros del sistema" }
+                new Permiso { Id = 10, Nombre = "GestionConfiguracion", Descripcion = "Configurar parámetros del sistema" },
+                new Permiso { Id = 11, Nombre = "GestionDevoluciones", Descripcion = "Registrar devoluciones totales y parciales de ventas" }
             );
 
             // 4. Asignar Permisos a Roles (RolPermisos)
-            // Administrador tiene todos (1-10)
+            // Administrador tiene todos (1-11)
             modelBuilder.Entity<RolPermiso>().HasData(
                 new RolPermiso { Id = 1, RolId = 1, PermisoId = 1 },
                 new RolPermiso { Id = 2, RolId = 1, PermisoId = 2 },
@@ -278,16 +283,18 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 7, RolId = 1, PermisoId = 7 },
                 new RolPermiso { Id = 8, RolId = 1, PermisoId = 8 },
                 new RolPermiso { Id = 9, RolId = 1, PermisoId = 9 },
-                new RolPermiso { Id = 10, RolId = 1, PermisoId = 10 }
+                new RolPermiso { Id = 10, RolId = 1, PermisoId = 10 },
+                new RolPermiso { Id = 21, RolId = 1, PermisoId = 11 }
             );
 
-            // Supervisor tiene 3, 4, 5, 7, 9
+            // Supervisor tiene 3, 4, 5, 7, 9, 11
             modelBuilder.Entity<RolPermiso>().HasData(
                 new RolPermiso { Id = 11, RolId = 2, PermisoId = 3 },
                 new RolPermiso { Id = 12, RolId = 2, PermisoId = 4 },
                 new RolPermiso { Id = 13, RolId = 2, PermisoId = 5 },
                 new RolPermiso { Id = 14, RolId = 2, PermisoId = 7 },
-                new RolPermiso { Id = 15, RolId = 2, PermisoId = 9 }
+                new RolPermiso { Id = 15, RolId = 2, PermisoId = 9 },
+                new RolPermiso { Id = 22, RolId = 2, PermisoId = 11 }
             );
 
             // Vendedor tiene 5

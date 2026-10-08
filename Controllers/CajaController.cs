@@ -843,6 +843,27 @@ namespace ApiAegis.Controllers
             var mixto = pagadas.Where(v => v.MetodoPagoId == 6).Sum(v => v.Total);
             var anuladasTotal = anuladas.Sum(v => v.Total);
             var devoluciones = MontoPorMetodo(anuladas, "Efectivo");
+
+            // Devoluciones parciales registradas sobre las ventas pagadas de esta sesión.
+            // Se devuelve por el mismo método de pago, por lo que sólo descuenta la proporción en efectivo.
+            var idsPagadas = pagadas.Select(v => v.Id).ToHashSet();
+            if (idsPagadas.Count > 0)
+            {
+                var todas = await _context.Devoluciones.AsNoTracking()
+                    .Select(x => new { x.VentaId, x.MontoDevuelto })
+                    .ToListAsync();
+
+                var infoVentas = pagadas.ToDictionary(
+                    v => v.Id,
+                    v => new { Efectivo = MontoPorMetodo(new[] { v }, "Efectivo"), Total = v.Total });
+
+                devoluciones += todas
+                    .Where(x => idsPagadas.Contains(x.VentaId))
+                    .Sum(x =>
+                        infoVentas.TryGetValue(x.VentaId, out var info) && info.Total > 0
+                            ? Math.Round(x.MontoDevuelto * (info.Efectivo / info.Total), 2)
+                            : 0m);
+            }
             var entradas = movimientos.Where(m => m.Tipo == "ENTRADA").Sum(m => m.Monto);
             var salidas = movimientos.Where(m => m.Tipo == "SALIDA").Sum(m => m.Monto);
 
