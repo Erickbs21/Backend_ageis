@@ -152,6 +152,43 @@ namespace ApiAegis.DTOs
         public string? Observacion { get; set; }
     }
 
+    public class InventarioFisicoDto
+    {
+        [Required(ErrorMessage = "El motivo es requerido")]
+        [MaxLength(255)]
+        public string Motivo { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Debe indicar los productos contados")]
+        public List<ConteoFisicoDetalleDto> Detalles { get; set; } = new List<ConteoFisicoDetalleDto>();
+    }
+
+    public class ConteoFisicoDetalleDto
+    {
+        [Required(ErrorMessage = "El producto es requerido")]
+        public int ProductoId { get; set; }
+
+        [Range(0, int.MaxValue, ErrorMessage = "La cantidad contada debe ser mayor o igual a 0")]
+        public int CantidadContada { get; set; }
+    }
+
+    public class InventarioFisicoAjusteDto
+    {
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty;
+        public int StockAnterior { get; set; }
+        public int StockContado { get; set; }
+        public int Diferencia { get; set; }
+    }
+
+    public class InventarioFisicoResultadoDto
+    {
+        public int Revisados { get; set; }
+        public int Ajustados { get; set; }
+        public int SinDiferencia { get; set; }
+        public List<InventarioFisicoAjusteDto> Ajustes { get; set; } = new List<InventarioFisicoAjusteDto>();
+    }
+
     public class CrearDevolucionDto
     {
         [Required(ErrorMessage = "La venta es requerida")]

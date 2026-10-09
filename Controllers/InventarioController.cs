@@ -22,11 +22,17 @@ namespace ApiAegis.Controllers
 
         [HttpGet("movimientos")]
         [TienePermiso("GestionInventario")]
-        public async Task<ActionResult<IEnumerable<MovimientoInventarioDto>>> GetMovimientos()
+        public async Task<ActionResult<IEnumerable<MovimientoInventarioDto>>> GetMovimientos([FromQuery] string? tipo)
         {
-            var movimientos = await _context.MovimientosInventario
+            var query = _context.MovimientosInventario
                 .Include(m => m.Producto)
                 .Include(m => m.Usuario)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(tipo))
+                query = query.Where(m => m.TipoMovimiento == tipo.ToUpperInvariant());
+
+            var movimientos = await query
                 .OrderByDescending(m => m.FechaMovimiento)
                 .Select(m => new MovimientoInventarioDto
                 {
@@ -165,6 +171,100 @@ namespace ApiAegis.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { mensaje = "Ajuste de inventario realizado correctamente", stockActual = stockNuevo });
+        }
+
+        // ============================================================
+        //  INVENTARIO FISICO (conteo vs sistema)
+        // ============================================================
+
+        [HttpPost("fisico")]
+        [TienePermiso("GestionInventario")]
+        public async Task<ActionResult<InventarioFisicoResultadoDto>> RegistrarInventarioFisico([FromBody] InventarioFisicoDto model)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            if (model.Detalles == null || model.Detalles.Count == 0)
+                return BadRequest(new { mensaje = "Debe indicar los productos contados" });
+
+            var ids = model.Detalles.Select(d => d.ProductoId).Distinct().ToList();
+            if (ids.Count != model.Detalles.Count)
+                return BadRequest(new { mensaje = "Hay productos repetidos en el conteo" });
+
+            // El proveedor MySQL no traduce colecciones primitivas: se filtra en memoria
+            var productos = (await _context.Productos.ToListAsync())
+                .Where(p => ids.Contains(p.Id))
+                .ToList();
+
+            var faltantes = ids.Where(id => !productos.Any(p => p.Id == id)).ToList();
+            if (faltantes.Count > 0)
+                return BadRequest(new { mensaje = $"Producto(s) no encontrado(s): {string.Join(", ", faltantes)}" });
+
+            var motivo = model.Motivo.Trim();
+            var conteo = model.Detalles.ToDictionary(d => d.ProductoId, d => d.CantidadContada);
+            var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            var resultado = new InventarioFisicoResultadoDto();
+
+            foreach (var producto in productos)
+            {
+                var contada = conteo[producto.Id];
+                int anterior = producto.StockActual;
+                int diferencia = contada - anterior;
+
+                resultado.Revisados++;
+
+                if (diferencia == 0)
+                {
+                    resultado.SinDiferencia++;
+                    continue;
+                }
+
+                producto.StockActual = contada;
+
+                _context.MovimientosInventario.Add(new MovimientoInventario
+                {
+                    ProductoId = producto.Id,
+                    TipoMovimiento = "AJUSTE",
+                    Cantidad = Math.Abs(diferencia),
+                    ExistenciaAnterior = anterior,
+                    ExistenciaNueva = contada,
+                    UsuarioId = currentUserId,
+                    Observacion = $"Inventario físico: contado {contada} (diferencia {(diferencia > 0 ? "+" : "")}{diferencia}) - {motivo}",
+                    FechaMovimiento = DateTime.UtcNow
+                });
+
+                resultado.Ajustados++;
+                resultado.Ajustes.Add(new InventarioFisicoAjusteDto
+                {
+                    ProductoId = producto.Id,
+                    ProductoNombre = producto.Nombre,
+                    Codigo = producto.Codigo,
+                    StockAnterior = anterior,
+                    StockContado = contada,
+                    Diferencia = diferencia
+                });
+            }
+
+            if (resultado.Ajustados > 0)
+            {
+                var resumen = string.Join(", ",
+                    resultado.Ajustes.Take(10).Select(a =>
+                        $"{a.ProductoNombre}: {a.StockAnterior}->{a.StockContado} ({a.Diferencia})"));
+
+                _context.Auditorias.Add(new Auditoria
+                {
+                    UsuarioId = currentUserId,
+                    Accion = $"Registró inventario físico con {resultado.Ajustados} ajuste(s). {resumen} | Motivo: {motivo}",
+                    TablaAfectada = "productos",
+                    RegistroId = resultado.Ajustes[0].ProductoId,
+                    Fecha = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(resultado);
         }
     }
 }
