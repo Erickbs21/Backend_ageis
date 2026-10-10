@@ -268,7 +268,8 @@ namespace ApiAegis.Data
                 new Permiso { Id = 8, Nombre = "GestionCaja", Descripcion = "Abrir y cerrar caja, ver reportes de cortes" },
                 new Permiso { Id = 9, Nombre = "VerReportes", Descripcion = "Ver reportes y dashboard administrativo" },
                 new Permiso { Id = 10, Nombre = "GestionConfiguracion", Descripcion = "Configurar parámetros del sistema" },
-                new Permiso { Id = 11, Nombre = "GestionDevoluciones", Descripcion = "Registrar devoluciones totales y parciales de ventas" }
+                new Permiso { Id = 11, Nombre = "GestionDevoluciones", Descripcion = "Registrar devoluciones totales y parciales de ventas" },
+                new Permiso { Id = 12, Nombre = "AplicarDescuentos", Descripcion = "Aplicar descuentos por producto o por venta" }
             );
 
             // 4. Asignar Permisos a Roles (RolPermisos)
@@ -284,7 +285,8 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 8, RolId = 1, PermisoId = 8 },
                 new RolPermiso { Id = 9, RolId = 1, PermisoId = 9 },
                 new RolPermiso { Id = 10, RolId = 1, PermisoId = 10 },
-                new RolPermiso { Id = 21, RolId = 1, PermisoId = 11 }
+                new RolPermiso { Id = 21, RolId = 1, PermisoId = 11 },
+                new RolPermiso { Id = 23, RolId = 1, PermisoId = 12 }
             );
 
             // Supervisor tiene 3, 4, 5, 7, 9, 11
@@ -294,7 +296,8 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 13, RolId = 2, PermisoId = 5 },
                 new RolPermiso { Id = 14, RolId = 2, PermisoId = 7 },
                 new RolPermiso { Id = 15, RolId = 2, PermisoId = 9 },
-                new RolPermiso { Id = 22, RolId = 2, PermisoId = 11 }
+                new RolPermiso { Id = 22, RolId = 2, PermisoId = 11 },
+                new RolPermiso { Id = 24, RolId = 2, PermisoId = 12 }
             );
 
             // Vendedor tiene 5

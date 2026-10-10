@@ -56,6 +56,10 @@ namespace ApiAegis.Models
         [Column("descuento")]
         public decimal Descuento { get; set; } = 0.00m;
 
+        [MaxLength(255)]
+        [Column("motivo_descuento")]
+        public string? MotivoDescuento { get; set; }
+
         [Column("impuestos")]
         public decimal Impuestos { get; set; } = 0.00m;
 

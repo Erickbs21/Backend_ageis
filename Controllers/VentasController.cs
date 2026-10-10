@@ -47,6 +47,7 @@ namespace ApiAegis.Controllers
                     UsuarioNombre = $"{v.Usuario!.Nombre} {v.Usuario.Apellido}",
                     Subtotal = v.Subtotal,
                     Descuento = v.Descuento,
+                    MotivoDescuento = v.MotivoDescuento,
                     Impuestos = v.Impuestos,
                     Total = v.Total,
                     Vuelto = v.Vuelto,
@@ -59,6 +60,7 @@ namespace ApiAegis.Controllers
                         ProductoNombre = d.Producto!.Nombre,
                         Cantidad = d.Cantidad,
                         PrecioUnitario = d.PrecioUnitario,
+                        Descuento = d.Descuento,
                         Subtotal = d.Subtotal
                     }).ToList(),
                     Pagos = v.Pagos.Select(p => new VentaPagoDto
@@ -104,6 +106,7 @@ namespace ApiAegis.Controllers
                 UsuarioNombre = $"{v.Usuario!.Nombre} {v.Usuario.Apellido}",
                 Subtotal = v.Subtotal,
                 Descuento = v.Descuento,
+                MotivoDescuento = v.MotivoDescuento,
                 Impuestos = v.Impuestos,
                 Total = v.Total,
                 Vuelto = v.Vuelto,
@@ -141,6 +144,27 @@ namespace ApiAegis.Controllers
                 return BadRequest(ModelState);
 
             var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+            // 0. Validar y autorizar descuentos (permiso específico + motivo)
+            decimal descuentoLineas = model.Detalles.Sum(d => d.Descuento);
+            decimal descuentoTotal = model.Descuento + descuentoLineas;
+
+            if (descuentoTotal > 0)
+            {
+                var esAdmin = User.IsInRole("Administrador");
+                var tienePermisoDescuento = User.Claims.Any(c => c.Type == "permiso" && c.Value == "AplicarDescuentos");
+                if (!esAdmin && !tienePermisoDescuento)
+                    return StatusCode(403, new { mensaje = "No tienes permiso para aplicar descuentos" });
+
+                if (string.IsNullOrWhiteSpace(model.MotivoDescuento))
+                    return BadRequest(new { mensaje = "Debe indicar el motivo del descuento aplicado" });
+            }
+
+            foreach (var item in model.Detalles)
+            {
+                if (item.Descuento > item.PrecioUnitario * item.Cantidad)
+                    return BadRequest(new { mensaje = "El descuento de un producto supera el subtotal de la línea" });
+            }
 
             // 1. Verificar si hay caja abierta asignada al usuario actual
             var cajaAbierta = await _context.Cajas
@@ -196,7 +220,6 @@ namespace ApiAegis.Controllers
                     TipoDocumento = model.TipoDocumento,
                     UsuarioId = currentUserId,
                     MetodoPagoId = metodoPagoPrincipal,
-                    Descuento = model.Descuento,
                     Estado = model.TipoDocumento == "VENTA" ? "PAGADA" : "PENDIENTE",
                     FechaVenta = DateTime.UtcNow,
                     CajaAperturaId = aperturaActual?.Id
@@ -250,10 +273,15 @@ namespace ApiAegis.Controllers
                     _context.MovimientosInventario.Add(movimiento);
                 }
 
+                if (descuentoTotal > subtotalAcumulado)
+                    return BadRequest(new { mensaje = "El descuento aplicado supera el subtotal de la venta" });
+
                 venta.Subtotal = subtotalAcumulado;
+                venta.Descuento = descuentoTotal;
+                venta.MotivoDescuento = descuentoTotal > 0 ? model.MotivoDescuento!.Trim() : null;
                 // Impuestos (ej. IVA 12% incluido)
-                venta.Impuestos = (subtotalAcumulado - model.Descuento) * 0.12m;
-                venta.Total = subtotalAcumulado - model.Descuento;
+                venta.Impuestos = (subtotalAcumulado - descuentoTotal) * 0.12m;
+                venta.Total = subtotalAcumulado - descuentoTotal;
 
                 // Calcular Vuelto y Pagos
                 decimal totalPagado = 0;
@@ -284,6 +312,17 @@ namespace ApiAegis.Controllers
                 };
                 _context.Auditorias.Add(audit);
 
+                if (descuentoTotal > 0)
+                {
+                    _context.Auditorias.Add(new Auditoria
+                    {
+                        UsuarioId = currentUserId,
+                        Accion = $"Aplicó descuento de Q{descuentoTotal:0.00} en la venta {venta.NumeroDocumento} (venta: Q{model.Descuento:0.00}, productos: Q{descuentoLineas:0.00}) | Motivo: {model.MotivoDescuento!.Trim()}",
+                        TablaAfectada = "ventas",
+                        Fecha = DateTime.UtcNow
+                    });
+                }
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -308,6 +347,7 @@ namespace ApiAegis.Controllers
                     UsuarioNombre = User.Identity?.Name ?? "",
                     Subtotal = venta.Subtotal,
                     Descuento = venta.Descuento,
+                    MotivoDescuento = venta.MotivoDescuento,
                     Impuestos = venta.Impuestos,
                     Total = venta.Total,
                     Vuelto = venta.Vuelto,

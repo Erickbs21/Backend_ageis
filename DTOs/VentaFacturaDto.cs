@@ -13,7 +13,11 @@ namespace ApiAegis.DTOs
 
         public string TipoDocumento { get; set; } = "VENTA"; // VENTA, COTIZACION, SUSPENDIDA
 
+        [Range(0, double.MaxValue, ErrorMessage = "El descuento de la venta no puede ser negativo")]
         public decimal Descuento { get; set; } = 0.00m;
+
+        [MaxLength(255, ErrorMessage = "El motivo del descuento no puede exceder 255 caracteres")]
+        public string? MotivoDescuento { get; set; }
 
         [Required(ErrorMessage = "La venta debe contener al menos un producto")]
         public List<CrearVentaDetalleDto> Detalles { get; set; } = new List<CrearVentaDetalleDto>();
@@ -39,6 +43,7 @@ namespace ApiAegis.DTOs
         [Range(0.01, double.MaxValue, ErrorMessage = "El precio unitario debe ser mayor a 0")]
         public decimal PrecioUnitario { get; set; }
 
+        [Range(0, double.MaxValue, ErrorMessage = "El descuento del producto no puede ser negativo")]
         public decimal Descuento { get; set; } = 0.00m;
     }
 
@@ -55,6 +60,7 @@ namespace ApiAegis.DTOs
         public string UsuarioNombre { get; set; } = string.Empty;
         public decimal Subtotal { get; set; }
         public decimal Descuento { get; set; }
+        public string? MotivoDescuento { get; set; }
         public decimal Impuestos { get; set; }
         public decimal Total { get; set; }
         public decimal Vuelto { get; set; }

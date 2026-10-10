@@ -35,6 +35,15 @@ namespace ApiAegis.Controllers
                 .Where(v => v.FechaVenta >= inicioMes && v.Estado == "PAGADA")
                 .SumAsync(v => v.Total);
 
+            // 2.1 Descuentos aplicados (día y mes)
+            var descuentosDia = await _context.Ventas
+                .Where(v => v.FechaVenta >= hoy && v.Estado == "PAGADA")
+                .SumAsync(v => v.Descuento);
+
+            var descuentosMes = await _context.Ventas
+                .Where(v => v.FechaVenta >= inicioMes && v.Estado == "PAGADA")
+                .SumAsync(v => v.Descuento);
+
             // 3. Compras del mes
             var comprasMes = await _context.Compras
                 .Where(c => c.FechaCompra >= inicioMes)
@@ -144,6 +153,8 @@ namespace ApiAegis.Controllers
             {
                 ventasDia,
                 ventasMes,
+                descuentosDia,
+                descuentosMes,
                 gananciaDia,
                 gananciaMes,
                 comprasMes,
