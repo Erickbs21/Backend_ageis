@@ -310,6 +310,7 @@ namespace ApiAegis.Controllers
             dto.VentasMixto = resumen.VentasMixto;
             dto.VentasAnuladas = resumen.VentasAnuladas;
             dto.Devoluciones = resumen.Devoluciones;
+            dto.AbonosCredito = resumen.AbonosCredito;
             dto.EntradasEfectivo = resumen.EntradasEfectivo;
             dto.SalidasEfectivo = resumen.SalidasEfectivo;
             dto.EfectivoEsperado = resumen.EfectivoEsperado;
@@ -839,7 +840,7 @@ namespace ApiAegis.Controllers
             var tarjeta = MontoPorMetodo(pagadas, "Tarjeta");
             var transferencia = MontoPorMetodo(pagadas, "Transferencia");
             var cheque = MontoPorMetodo(pagadas, "Cheque");
-            var credito = MontoPorMetodo(pagadas, "Crédito");
+            var credito = MontoPorMetodo(pagadas, "Crédito") + ventas.Where(v => v.Estado == "CREDITO").Sum(v => v.Total);
             var mixto = pagadas.Where(v => v.MetodoPagoId == 6).Sum(v => v.Total);
             var anuladasTotal = anuladas.Sum(v => v.Total);
             var devoluciones = MontoPorMetodo(anuladas, "Efectivo");
@@ -867,7 +868,15 @@ namespace ApiAegis.Controllers
             var entradas = movimientos.Where(m => m.Tipo == "ENTRADA").Sum(m => m.Monto);
             var salidas = movimientos.Where(m => m.Tipo == "SALIDA").Sum(m => m.Monto);
 
-            var efectivoEsperado = apertura.MontoInicial + efectivo + entradas - salidas - devoluciones;
+            // Abonos de crédito cobrados en esta sesión (entran en efectivo si se cobraron en efectivo)
+            decimal abonosEfectivo = await _context.CreditosAbonos.AsNoTracking()
+                .Where(a => a.CajaAperturaId == aperturaId && a.MetodoPago!.Nombre == "Efectivo")
+                .SumAsync(a => (decimal?)a.Monto) ?? 0m;
+            decimal abonosTotal = await _context.CreditosAbonos.AsNoTracking()
+                .Where(a => a.CajaAperturaId == aperturaId)
+                .SumAsync(a => (decimal?)a.Monto) ?? 0m;
+
+            var efectivoEsperado = apertura.MontoInicial + efectivo + entradas + abonosEfectivo - salidas - devoluciones;
 
             return new CierreResumenDto
             {
@@ -888,6 +897,7 @@ namespace ApiAegis.Controllers
                 VentasMixto = mixto,
                 VentasAnuladas = anuladasTotal,
                 Devoluciones = devoluciones,
+                AbonosCredito = abonosTotal,
                 EntradasEfectivo = entradas,
                 SalidasEfectivo = salidas,
                 EfectivoEsperado = efectivoEsperado,

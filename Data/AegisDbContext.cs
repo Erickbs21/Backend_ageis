@@ -29,6 +29,7 @@ namespace ApiAegis.Data
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<VentaDetalle> VentasDetalle { get; set; }
         public DbSet<VentaPago> VentaPagos { get; set; }
+        public DbSet<AbonoCredito> CreditosAbonos { get; set; }
         public DbSet<Factura> Facturas { get; set; }
         public DbSet<Devolucion> Devoluciones { get; set; }
         public DbSet<DevolucionDetalle> DevolucionesDetalle { get; set; }
@@ -210,6 +211,10 @@ namespace ApiAegis.Data
                 .Property(v => v.Total)
                 .HasPrecision(18, 2);
 
+            modelBuilder.Entity<AbonoCredito>()
+                .Property(a => a.Monto)
+                .HasPrecision(18, 2);
+
             modelBuilder.Entity<VentaDetalle>()
                 .Property(vd => vd.PrecioUnitario)
                 .HasPrecision(18, 2);
@@ -269,7 +274,8 @@ namespace ApiAegis.Data
                 new Permiso { Id = 9, Nombre = "VerReportes", Descripcion = "Ver reportes y dashboard administrativo" },
                 new Permiso { Id = 10, Nombre = "GestionConfiguracion", Descripcion = "Configurar parámetros del sistema" },
                 new Permiso { Id = 11, Nombre = "GestionDevoluciones", Descripcion = "Registrar devoluciones totales y parciales de ventas" },
-                new Permiso { Id = 12, Nombre = "AplicarDescuentos", Descripcion = "Aplicar descuentos por producto o por venta" }
+                new Permiso { Id = 12, Nombre = "AplicarDescuentos", Descripcion = "Aplicar descuentos por producto o por venta" },
+                new Permiso { Id = 13, Nombre = "GestionCredito", Descripcion = "Cobrar abonos y gestionar la cartera de crédito de clientes" }
             );
 
             // 4. Asignar Permisos a Roles (RolPermisos)
@@ -286,7 +292,8 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 9, RolId = 1, PermisoId = 9 },
                 new RolPermiso { Id = 10, RolId = 1, PermisoId = 10 },
                 new RolPermiso { Id = 21, RolId = 1, PermisoId = 11 },
-                new RolPermiso { Id = 23, RolId = 1, PermisoId = 12 }
+                new RolPermiso { Id = 23, RolId = 1, PermisoId = 12 },
+                new RolPermiso { Id = 25, RolId = 1, PermisoId = 13 }
             );
 
             // Supervisor tiene 3, 4, 5, 7, 9, 11
@@ -297,7 +304,8 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 14, RolId = 2, PermisoId = 7 },
                 new RolPermiso { Id = 15, RolId = 2, PermisoId = 9 },
                 new RolPermiso { Id = 22, RolId = 2, PermisoId = 11 },
-                new RolPermiso { Id = 24, RolId = 2, PermisoId = 12 }
+                new RolPermiso { Id = 24, RolId = 2, PermisoId = 12 },
+                new RolPermiso { Id = 26, RolId = 2, PermisoId = 13 }
             );
 
             // Vendedor tiene 5
@@ -305,10 +313,11 @@ namespace ApiAegis.Data
                 new RolPermiso { Id = 16, RolId = 3, PermisoId = 5 }
             );
 
-            // Caja tiene 8 y 5
+            // Caja tiene 8, 5 y 13
             modelBuilder.Entity<RolPermiso>().HasData(
                 new RolPermiso { Id = 17, RolId = 4, PermisoId = 5 },
-                new RolPermiso { Id = 18, RolId = 4, PermisoId = 8 }
+                new RolPermiso { Id = 18, RolId = 4, PermisoId = 8 },
+                new RolPermiso { Id = 27, RolId = 4, PermisoId = 13 }
             );
 
             // 5. Usuario Administrador por defecto

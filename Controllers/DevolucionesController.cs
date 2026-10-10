@@ -84,6 +84,9 @@ namespace ApiAegis.Controllers
             if (venta.Estado == "ANULADA")
                 return BadRequest(new { mensaje = "La venta ya se encuentra anulada, no admite devoluciones" });
 
+            if (venta.Estado == "CREDITO")
+                return BadRequest(new { mensaje = "La venta está a crédito con saldo pendiente. No admite devoluciones." });
+
             var devueltas = await _context.DevolucionesDetalle
                 .AsNoTracking()
                 .Where(dd => dd.Devolucion!.VentaId == ventaId)
@@ -149,6 +152,9 @@ namespace ApiAegis.Controllers
 
             if (venta.Estado == "ANULADA")
                 return BadRequest(new { mensaje = "La venta ya se encuentra anulada, no admite devoluciones" });
+
+            if (venta.Estado == "CREDITO")
+                return BadRequest(new { mensaje = "La venta está a crédito con saldo pendiente. No admite devoluciones; cobre o anule la venta primero." });
 
             var solicitadas = model.Detalles
                 .Where(d => d.Cantidad > 0)

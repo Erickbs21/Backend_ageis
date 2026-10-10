@@ -77,6 +77,16 @@ namespace ApiAegis.Controllers
             return Ok(ventas);
         }
 
+        [HttpGet("metodos-pago")]
+        public async Task<ActionResult> GetMetodosPago()
+        {
+            var metodos = await _context.MetodosPago.AsNoTracking()
+                .Where(m => m.Activo)
+                .Select(m => new { m.Id, m.Nombre, m.Activo })
+                .ToListAsync();
+            return Ok(metodos);
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<VentaDto>> GetVenta(int id)
         {
@@ -207,6 +217,34 @@ namespace ApiAegis.Controllers
                 metodoPagoPrincipal = model.Pagos.First().MetodoPagoId;
             }
 
+            // 3b. Venta a crédito: cliente habilitado + límite disponible
+            bool esCredito = metodoPagoPrincipal == 5;
+            if (esCredito)
+            {
+                if (model.TipoDocumento != "VENTA")
+                    return BadRequest(new { mensaje = "Solo se pueden registrar ventas a crédito (no cotizaciones)" });
+
+                if (clienteIdFinal == 1)
+                    return BadRequest(new { mensaje = "No se puede vender a crédito a Consumidor Final. Seleccione un cliente registrado." });
+
+                if (!cliente.CreditoHabilitado)
+                    return BadRequest(new { mensaje = "El cliente no tiene el crédito habilitado" });
+
+                if (cliente.LimiteCredito <= 0)
+                    return BadRequest(new { mensaje = "El cliente no tiene un límite de crédito configurado" });
+
+                decimal totalEstimado = model.Detalles.Sum(d => d.PrecioUnitario * d.Cantidad - d.Descuento) - model.Descuento;
+                if (totalEstimado <= 0)
+                    return BadRequest(new { mensaje = "El total de la venta a crédito debe ser mayor a 0" });
+
+                decimal saldoActual = await CalcularSaldoCreditoAsync(clienteIdFinal);
+                if (saldoActual + totalEstimado > cliente.LimiteCredito)
+                    return BadRequest(new
+                    {
+                        mensaje = $"Crédito insuficiente. Límite: Q{cliente.LimiteCredito:0.00}, saldo pendiente: Q{saldoActual:0.00}, disponible: Q{Math.Max(cliente.LimiteCredito - saldoActual, 0):0.00}"
+                    });
+            }
+
             // Iniciar transacción de base de datos
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -220,7 +258,7 @@ namespace ApiAegis.Controllers
                     TipoDocumento = model.TipoDocumento,
                     UsuarioId = currentUserId,
                     MetodoPagoId = metodoPagoPrincipal,
-                    Estado = model.TipoDocumento == "VENTA" ? "PAGADA" : "PENDIENTE",
+                    Estado = model.TipoDocumento != "VENTA" ? "PENDIENTE" : esCredito ? "CREDITO" : "PAGADA",
                     FechaVenta = DateTime.UtcNow,
                     CajaAperturaId = aperturaActual?.Id
                 };
@@ -283,21 +321,24 @@ namespace ApiAegis.Controllers
                 venta.Impuestos = (subtotalAcumulado - descuentoTotal) * 0.12m;
                 venta.Total = subtotalAcumulado - descuentoTotal;
 
-                // Calcular Vuelto y Pagos
+                // Calcular Vuelto y Pagos (en crédito no se registra pago; la deuda queda en la venta)
                 decimal totalPagado = 0;
-                foreach(var pagoModel in model.Pagos)
+                if (!esCredito)
                 {
-                    totalPagado += pagoModel.Monto;
-                    venta.Pagos.Add(new VentaPago
+                    foreach (var pagoModel in model.Pagos)
                     {
-                        MetodoPagoId = pagoModel.MetodoPagoId,
-                        Monto = pagoModel.Monto
-                    });
-                }
+                        totalPagado += pagoModel.Monto;
+                        venta.Pagos.Add(new VentaPago
+                        {
+                            MetodoPagoId = pagoModel.MetodoPagoId,
+                            Monto = pagoModel.Monto
+                        });
+                    }
 
-                if(totalPagado > venta.Total && model.TipoDocumento == "VENTA")
-                {
-                    venta.Vuelto = totalPagado - venta.Total;
+                    if (totalPagado > venta.Total && model.TipoDocumento == "VENTA")
+                    {
+                        venta.Vuelto = totalPagado - venta.Total;
+                    }
                 }
 
                 _context.Ventas.Add(venta);
@@ -326,9 +367,9 @@ namespace ApiAegis.Controllers
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // Calcular Faltante para el DTO
+                // Calcular Faltante para el DTO (en crédito no hay faltante: la deuda es el total)
                 decimal faltante = 0;
-                if(venta.TipoDocumento != "COTIZACION" && totalPagado < venta.Total)
+                if (venta.TipoDocumento != "COTIZACION" && !esCredito && totalPagado < venta.Total)
                 {
                     faltante = venta.Total - totalPagado;
                 }
@@ -378,6 +419,15 @@ namespace ApiAegis.Controllers
 
             if (venta.Estado == "ANULADA")
                 return BadRequest(new { mensaje = "La venta ya se encuentra anulada" });
+
+            if (venta.Estado == "CREDITO")
+            {
+                decimal abonado = await _context.CreditosAbonos
+                    .Where(a => a.VentaId == id)
+                    .SumAsync(a => (decimal?)a.Monto) ?? 0m;
+                if (abonado > 0)
+                    return BadRequest(new { mensaje = $"La venta a crédito tiene abonos por Q{abonado:0.00}. No puede anularse." });
+            }
 
             var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
@@ -432,5 +482,24 @@ namespace ApiAegis.Controllers
                 return StatusCode(500, new { mensaje = "Ocurrió un error al anular la venta", error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Saldo pendiente de un cliente = Σ(ventas a crédito) − Σ(abonos).
+        /// </summary>
+        internal static async Task<decimal> CalcularSaldoCreditoAsync(AegisDbContext context, int clienteId)
+        {
+            var saldo = await context.Ventas
+                .Where(v => v.ClienteId == clienteId && v.Estado == "CREDITO")
+                .SumAsync(v => (decimal?)v.Total) ?? 0m;
+
+            var abonado = await context.CreditosAbonos
+                .Where(a => a.Venta!.ClienteId == clienteId && a.Venta.Estado == "CREDITO")
+                .SumAsync(a => (decimal?)a.Monto) ?? 0m;
+
+            return Math.Max(saldo - abonado, 0m);
+        }
+
+        private Task<decimal> CalcularSaldoCreditoAsync(int clienteId) =>
+            CalcularSaldoCreditoAsync(_context, clienteId);
     }
 }

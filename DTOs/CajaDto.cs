@@ -142,6 +142,7 @@ namespace ApiAegis.DTOs
         public decimal VentasMixto { get; set; }
         public decimal VentasAnuladas { get; set; }
         public decimal Devoluciones { get; set; }
+        public decimal AbonosCredito { get; set; }
 
         // Movimientos
         public decimal EntradasEfectivo { get; set; }
@@ -172,6 +173,7 @@ namespace ApiAegis.DTOs
         public decimal VentasMixto { get; set; }
         public decimal VentasAnuladas { get; set; }
         public decimal Devoluciones { get; set; }
+        public decimal AbonosCredito { get; set; }
 
         public decimal EntradasEfectivo { get; set; }
         public decimal SalidasEfectivo { get; set; }
