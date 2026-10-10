@@ -166,5 +166,153 @@ namespace ApiAegis.Controllers
                 cierresRecientes
             });
         }
+
+        // ============================================================
+        //  REPORTE DE VENTAS POR PERIODO
+        // ============================================================
+
+        [HttpGet("ventas")]
+        [TienePermiso("VerReportes")]
+        public async Task<IActionResult> ReporteVentas(
+            [FromQuery] DateTime? desde,
+            [FromQuery] DateTime? hasta,
+            [FromQuery] int? usuarioId,
+            [FromQuery] string? estado)
+        {
+            var fechaDesde = DateTime.SpecifyKind((desde ?? DateTime.UtcNow.Date.AddDays(-29)).Date, DateTimeKind.Utc);
+            var fechaHasta = DateTime.SpecifyKind((hasta ?? DateTime.UtcNow.Date).Date.AddDays(1), DateTimeKind.Utc);
+
+            if (fechaHasta <= fechaDesde)
+                return BadRequest(new { mensaje = "El rango de fechas es inválido (hasta debe ser mayor o igual a desde)" });
+
+            var query = _context.Ventas
+                .AsNoTracking()
+                .Include(v => v.Cliente)
+                .Include(v => v.Usuario)
+                .Include(v => v.Detalles)
+                    .ThenInclude(d => d.Producto)
+                .Include(v => v.Pagos)
+                    .ThenInclude(p => p.MetodoPago)
+                .Where(v => v.FechaVenta >= fechaDesde && v.FechaVenta < fechaHasta);
+
+            if (usuarioId.HasValue)
+                query = query.Where(v => v.UsuarioId == usuarioId.Value);
+
+            if (!string.IsNullOrWhiteSpace(estado))
+                query = query.Where(v => v.Estado == estado.ToUpperInvariant());
+
+            var ventas = await query.OrderByDescending(v => v.FechaVenta).ToListAsync();
+
+            var devolucionesPeriodo = await _context.Devoluciones
+                .AsNoTracking()
+                .Where(d => d.Fecha >= fechaDesde && d.Fecha < fechaHasta)
+                .SumAsync(d => d.MontoDevuelto);
+
+            var filas = ventas.Select(v =>
+            {
+                decimal costo = v.Detalles.Sum(d => (d.Producto?.Costo ?? 0) * d.Cantidad);
+                decimal ingreso = v.Estado == "PAGADA" ? v.Total : 0;
+                return new
+                {
+                    Id = v.Id,
+                    NumeroDocumento = v.NumeroDocumento,
+                    FechaVenta = v.FechaVenta,
+                    ClienteNombre = v.Cliente?.Nombre ?? v.NombreCliente ?? "CF",
+                    UsuarioNombre = $"{v.Usuario?.Nombre} {v.Usuario?.Apellido}".Trim(),
+                    Estado = v.Estado,
+                    Subtotal = v.Subtotal,
+                    Descuento = v.Descuento,
+                    Impuestos = v.Impuestos,
+                    Total = v.Total,
+                    Costo = costo,
+                    Ganancia = ingreso - costo
+                };
+            }).ToList();
+
+            var pagadas = ventas.Where(v => v.Estado == "PAGADA").ToList();
+
+            var porMetodoPago = pagadas
+                .SelectMany(v => v.Pagos.Select(p => new { Metodo = p.MetodoPago?.Nombre ?? "Sin método", p.Monto }))
+                .GroupBy(x => x.Metodo)
+                .Select(g => new { Metodo = g.Key, Monto = g.Sum(x => x.Monto) })
+                .OrderByDescending(x => x.Monto)
+                .ToList();
+
+            var porVendedor = pagadas
+                .GroupBy(v => new { v.UsuarioId, Nombre = $"{v.Usuario?.Nombre} {v.Usuario?.Apellido}".Trim() })
+                .Select(g => new
+                {
+                    VendedorId = g.Key.UsuarioId,
+                    g.Key.Nombre,
+                    Cantidad = g.Count(),
+                    Monto = g.Sum(v => v.Total)
+                })
+                .OrderByDescending(x => x.Monto)
+                .ToList();
+
+            return Ok(new
+            {
+                desde = fechaDesde,
+                hasta = fechaHasta.AddDays(-1),
+                resumen = new
+                {
+                    CantidadVentas = ventas.Count,
+                    MontoVentas = pagadas.Sum(v => v.Total),
+                    MontoDescuentos = pagadas.Sum(v => v.Descuento),
+                    MontoDevoluciones = devolucionesPeriodo,
+                    MontoImpuestos = pagadas.Sum(v => v.Impuestos),
+                    MontoGanancia = pagadas.Sum(v => v.Total) - pagadas.Sum(v => v.Detalles.Sum(d => (d.Producto?.Costo ?? 0) * d.Cantidad)),
+                    PorMetodoPago = porMetodoPago,
+                    PorVendedor = porVendedor
+                },
+                ventas = filas
+            });
+        }
+
+        // ============================================================
+        //  REPORTE DE PRODUCTOS VENDIDOS POR PERIODO
+        // ============================================================
+
+        [HttpGet("productos")]
+        [TienePermiso("VerReportes")]
+        public async Task<IActionResult> ReporteProductos([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+        {
+            var fechaDesde = DateTime.SpecifyKind((desde ?? DateTime.UtcNow.Date.AddDays(-29)).Date, DateTimeKind.Utc);
+            var fechaHasta = DateTime.SpecifyKind((hasta ?? DateTime.UtcNow.Date).Date.AddDays(1), DateTimeKind.Utc);
+
+            if (fechaHasta <= fechaDesde)
+                return BadRequest(new { mensaje = "El rango de fechas es inválido (hasta debe ser mayor o igual a desde)" });
+
+            var detalles = await _context.VentasDetalle
+                .AsNoTracking()
+                .Include(d => d.Producto)
+                .Include(d => d.Venta)
+                .Where(d => d.Venta!.FechaVenta >= fechaDesde
+                    && d.Venta.FechaVenta < fechaHasta
+                    && d.Venta.Estado == "PAGADA")
+                .ToListAsync();
+
+            var productos = detalles
+                .GroupBy(d => new { d.ProductoId, d.Producto!.Codigo, d.Producto!.Nombre })
+                .Select(g => new
+                {
+                    ProductoId = g.Key.ProductoId,
+                    g.Key.Codigo,
+                    g.Key.Nombre,
+                    CantidadVendida = g.Sum(d => d.Cantidad),
+                    Ingreso = g.Sum(d => d.Subtotal),
+                    Costo = g.Sum(d => (d.Producto?.Costo ?? 0) * d.Cantidad),
+                    Ganancia = g.Sum(d => d.Subtotal) - g.Sum(d => (d.Producto?.Costo ?? 0) * d.Cantidad)
+                })
+                .OrderByDescending(x => x.Ingreso)
+                .ToList();
+
+            return Ok(new
+            {
+                desde = fechaDesde,
+                hasta = fechaHasta.AddDays(-1),
+                productos
+            });
+        }
     }
 }
